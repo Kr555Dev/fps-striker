@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>KRUNKER ARENA // 3D Fast-Paced Voxel FPS</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <!-- 3D Canvas Container -->
+    <div id="game-container"></div>
+
+    <!-- Directional / Vignette Damage Flash -->
+    <div id="damage-vignette"></div>
+
+    <!-- HUD Overlay -->
+    <div id="hud">
+        <!-- Top Left: Match Time, Ping, Mode & Team Scores -->
+        <div id="top-left-hud">
+            <div class="time-ping-row">
+                <div class="match-time-badge">
+                    <span class="clock-icon">⏱</span>
+                    <span id="match-timer">01:49</span>
+                </div>
+                <div id="ping-display">30 PING</div>
+                <div id="fps-counter">60 FPS</div>
+            </div>
+            <div class="mode-map-row">
+                <span class="mode-label">Team Deathmatch</span>
+                <span class="map-label">on Undergrowth</span>
+            </div>
+            <div class="team-score-row">
+                <span class="team-score alpha"><span class="team-square white">■</span> <span id="score-alpha">50</span></span>
+                <span class="team-score omega"><span class="team-square red">■</span> <span id="score-omega">465</span></span>
+            </div>
+        </div>
+
+        <!-- Top Right: Live Leaderboard Card -->
+        <div id="top-right-leaderboard">
+            <div class="leaderboard-entry rank-1">
+                <span class="lb-rank">1.</span>
+                <span class="lb-name">Guest_1</span>
+                <span class="lb-score" id="lb-score-1">415</span>
+            </div>
+            <div class="leaderboard-entry rank-2">
+                <span class="lb-rank">2.</span>
+                <span class="lb-name" id="lb-player-name">Player_4</span>
+                <span class="lb-score" id="lb-score-player">50</span>
+            </div>
+            <div class="leaderboard-entry">
+                <span class="lb-rank">3.</span>
+                <span class="lb-name">Player_5</span>
+                <span class="lb-score">50</span>
+            </div>
+            <div class="leaderboard-entry">
+                <span class="lb-rank">4.</span>
+                <span class="lb-name">Guest_2</span>
+                <span class="lb-score">0</span>
+            </div>
+            <div class="leaderboard-entry">
+                <span class="lb-rank">5.</span>
+                <span class="lb-name">Guest_3</span>
+                <span class="lb-score">0</span>
+            </div>
+            <div class="leaderboard-entry">
+                <span class="lb-rank">6.</span>
+                <span class="lb-name">Guest_6</span>
+                <span class="lb-score">0</span>
+            </div>
+        </div>
+
+        <!-- Krunker Razor-Sharp Crosshair (+ with center gap) -->
+        <div id="crosshair">
+            <div class="crosshair-line ch-top"></div>
+            <div class="crosshair-line ch-bottom"></div>
+            <div class="crosshair-line ch-left"></div>
+            <div class="crosshair-line ch-right"></div>
+        </div>
+
+        <!-- Hitmarker -->
+        <div id="hitmarker">
+            <div class="hit-line hit-tl"></div>
+            <div class="hit-line hit-tr"></div>
+            <div class="hit-line hit-bl"></div>
+            <div class="hit-line hit-br"></div>
+        </div>
+
+        <!-- Sniper Scope ADS Overlay -->
+        <div id="sniper-scope">
+            <div class="scope-reticle">
+                <div class="scope-line-h"></div>
+                <div class="scope-line-v"></div>
+            </div>
+        </div>
+
+        <!-- Dopamine Kill Medal Container -->
+        <div id="kill-medal-container"></div>
+
+        <!-- Speedometer (Slide-Hop Momentum) -->
+        <div id="speedometer">
+            <span id="speed-val">0 SPD</span>
+        </div>
+
+        <!-- Reload Prompt -->
+        <div id="reload-prompt">PRESS [R] TO RELOAD</div>
+
+        <!-- Bottom Left: Chat Box & Player Card -->
+        <div id="bottom-left-hud">
+            <!-- Chat / Notification Box -->
+            <div id="chat-box">
+                <div class="chat-msg system-msg"><span class="chat-name pink">Guest_6</span> joined the game</div>
+                <div class="chat-msg streak-msg"><span class="chat-name red">Guest_1</span> is on a 5 Kill Streak</div>
+                <div class="chat-msg system-msg"><span class="chat-name pink">Guest_1</span> joined the game</div>
+                <div class="chat-input-bar">
+                    <span class="chat-placeholder">Enter Message</span>
+                    <span class="chat-mute-icon">[V]</span>
+                </div>
+            </div>
+
+            <!-- Player Status Card: Avatar + Segmented HP -->
+            <div id="player-card">
+                <div class="player-avatar-box">
+                    <div class="avatar-head"></div>
+                </div>
+                <div class="player-details">
+                    <div class="team-badge">Team <b>Alpha</b></div>
+                    <div class="hp-row">
+                        <div class="hp-segments">
+                            <div class="hp-segment seg-1 active"></div>
+                            <div class="hp-segment seg-2 active"></div>
+                            <div class="hp-segment seg-3 active"></div>
+                            <div class="hp-segment seg-4 active"></div>
+                            <div class="hp-segment seg-5 active"></div>
+                        </div>
+                        <div class="hp-num-group">
+                            <span class="hp-plus">+</span>
+                            <span id="hp-val">100</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Bottom Right: Weapon Loadout & Ammo Status -->
+        <div id="bottom-right-hud">
+            <!-- Weapon Loadout Slots -->
+            <div id="weapon-loadout">
+                <div class="loadout-slot active" data-slot="ar">
+                    <span class="slot-name">Assault Rifle</span>
+                    <span class="slot-key">1</span>
+                </div>
+                <div class="loadout-slot" data-slot="revolver">
+                    <span class="slot-name">Pistol</span>
+                    <span class="slot-key">2</span>
+                </div>
+                <div class="loadout-slot" data-slot="sniper">
+                    <span class="slot-name">Sniper</span>
+                    <span class="slot-key">3</span>
+                </div>
+                <div class="loadout-slot" data-slot="smg">
+                    <span class="slot-name">SMG</span>
+                    <span class="slot-key">4</span>
+                </div>
+            </div>
+
+            <!-- Massive Krunker Ammo Display -->
+            <div id="ammo-status">
+                <div class="ammo-numbers">
+                    <span id="ammo-current">30</span>
+                    <span class="ammo-slash">|</span>
+                    <span id="ammo-max">30</span>
+                    <span class="ammo-pips">!!!</span>
+                </div>
+                <div id="ammo-reserve-label">RESERVE: <span id="ammo-reserve">120</span></div>
+            </div>
+        </div>
+
+        <!-- Floating Damage Indicator Container -->
+        <div id="floating-damage-container"></div>
+    </div>
+
+    <!-- Start / Deploy Menu Screen (Matches Krunker Lobby media_1791207615832.png) -->
+    <div id="start-menu" class="krunker-lobby-overlay">
+        <!-- Top Navigation Bar -->
+        <div class="lobby-top-bar">
+            <div class="top-nav-left">
+                <div class="nav-item">🔒 LOGIN OR REGISTER</div>
+                <div class="nav-item gold">🎁 GET SIGNUP REWARDS</div>
+                <div class="nav-item">📖 GUIDE</div>
+            </div>
+            <div class="top-nav-right">
+                <div class="nav-item">🔔 Notifications</div>
+                <div class="nav-item">⚙️ Settings</div>
+            </div>
+        </div>
+
+        <!-- Central CLICK TO PLAY Banner -->
+        <div class="lobby-center-prompt">
+            <h1 class="krunker-logo-title">KRUNKER</h1>
+            <div id="btn-start-game" class="click-to-play-btn">
+                <span>CLICK TO PLAY</span>
+            </div>
+            <p class="lobby-instructions">[WASD] Move &bull; [SPACE] Jump/Slide-Hop &bull; [SHIFT] Slide &bull; [1-4] Switch Weapons</p>
+        </div>
+
+        <!-- Bottom Customization Card -->
+        <div class="lobby-bottom-bar">
+            <div class="class-card">
+                <div class="class-class-title">Triggerman</div>
+                <div class="class-gun-name">Assault Rifle</div>
+                <div class="customize-tag">Customize ✎</div>
+            </div>
+            <div class="server-info">
+                Now Playing: <b>Team Deathmatch on Undergrowth</b> &bull; Ping: <span style="color:#00ff88;">29ms</span>
+            </div>
+        </div>
+
+        <!-- Right Action Menu Buttons -->
+        <div class="lobby-right-menu">
+            <button class="lobby-btn quick-match" id="btn-quick-match">⚡ QUICK MATCH</button>
+            <button class="lobby-btn ranked">🎖️ RANKED</button>
+            <button class="lobby-btn standard">🏠 HOST GAME</button>
+            <button class="lobby-btn standard">🔍 FIND GAME</button>
+            <button class="lobby-btn custom">🎮 CUSTOM GAMES</button>
+        </div>
+    </div>
+
+    <!-- Pause & Settings Menu (ESC) -->
+    <div id="pause-menu" class="overlay-screen" style="display: none;">
+        <div class="screen-card">
+            <h2 class="game-title" style="font-size: 52px;">GAME PAUSED</h2>
+
+            <div class="settings-group">
+                <div class="setting-row">
+                    <span>Field of View (FOV): <b id="setting-fov-val" style="color:#00ffcc;">75</b></span>
+                    <input type="range" id="setting-fov" class="setting-slider" min="65" max="105" value="75">
+                </div>
+                <div class="setting-row">
+                    <span>Mouse Sensitivity: <b id="setting-sens-val" style="color:#00ffcc;">2.2</b></span>
+                    <input type="range" id="setting-sens" class="setting-slider" min="0.5" max="6.0" step="0.1" value="2.2">
+                </div>
+                <div class="setting-row">
+                    <span>Audio Volume: <b id="setting-vol-val" style="color:#00ffcc;">70%</b></span>
+                    <input type="range" id="setting-vol" class="setting-slider" min="0" max="100" value="70">
+                </div>
+            </div>
+
+            <div style="display: flex; gap: 12px; justify-content: center;">
+                <button id="btn-resume" class="action-btn">RESUME GAME</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Death / Respawn Screen -->
+    <div id="death-screen" class="overlay-screen" style="display: none;">
+        <div class="screen-card" style="border-color: #ff2255; box-shadow: 0 0 35px rgba(255, 34, 85, 0.4);">
+            <h2 class="game-title" style="background: linear-gradient(135deg, #ff2255, #ffaa00); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
+                ELIMINATED
+            </h2>
+            <p class="game-subtitle" style="margin-bottom: 20px;">Get back into the fight!</p>
+            <button id="btn-respawn" class="action-btn" style="background: linear-gradient(135deg, #ff2255, #ff7700);">
+                RESPAWN [SPACE]
+            </button>
+        </div>
+    </div>
+
+    <!-- Match Over & Leaderboard Modal -->
+    <div id="scoreboard-modal" class="krunker-modal-backdrop" style="display: none;">
+        <div class="krunker-modal-card">
+            <button id="btn-close-scoreboard" class="modal-close-btn" title="Dismiss and start new match">✕</button>
+            <div class="krunker-modal-header">
+                <div class="modal-title-group">
+                    <span class="modal-tag">MATCH COMPLETED</span>
+                    <h2 class="modal-title" id="match-outcome-title">TEAM ALPHA VICTORY</h2>
+                </div>
+            </div>
+            
+            <div class="match-summary-stats">
+                <div class="summary-stat-box">
+                    <span class="stat-lbl">YOUR KILLS</span>
+                    <span class="stat-val highlight" id="summary-kills">0</span>
+                </div>
+                <div class="summary-stat-box">
+                    <span class="stat-lbl">YOUR DEATHS</span>
+                    <span class="stat-val" id="summary-deaths">0</span>
+                </div>
+                <div class="summary-stat-box">
+                    <span class="stat-lbl">FINAL SCORE</span>
+                    <span class="stat-val gold" id="summary-score">0</span>
+                </div>
+                <div class="summary-stat-box">
+                    <span class="stat-lbl">MATCH MVP</span>
+                    <span class="stat-val mvp-name" id="summary-mvp">Guest_1</span>
+                </div>
+            </div>
+
+            <div class="scoreboard-table-wrap">
+                <table class="score-table">
+                    <thead>
+                        <tr>
+                            <th>RANK</th>
+                            <th>PLAYER</th>
+                            <th>KILLS</th>
+                            <th>DEATHS</th>
+                            <th>SCORE</th>
+                            <th>PING</th>
+                        </tr>
+                    </thead>
+                    <tbody id="scoreboard-body">
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="krunker-modal-footer">
+                <button id="btn-restart-match" class="action-btn restart-btn">
+                    <span>⚡ START NEW MATCH [SPACE]</span>
+                </button>
+                <button id="btn-dismiss-match" class="action-btn dismiss-btn">
+                    <span>CONTINUE PLAYING</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- Scripts -->
+    <!-- Offline Three.js with CDN Fallback -->
+    <script src="lib/three.min.js"></script>
+    <script>
+        if (typeof THREE === 'undefined') {
+            document.write('<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"><\/script>');
+        }
+    </script>
+    <script src="js/audio.js"></script>
+    <script src="js/textures.js"></script>
+    <script src="js/particles.js"></script>
+    <script src="js/map.js"></script>
+    <script src="js/player.js"></script>
+    <script src="js/weapons.js"></script>
+    <script src="js/bots.js"></script>
+    <script src="js/ui.js"></script>
+    <script src="js/main.js"></script>
+</body>
+</html>

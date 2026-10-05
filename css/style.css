@@ -1,0 +1,1427 @@
+@import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Teko:wght@600;700&display=swap');
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+body, html {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background-color: #0b0c10;
+    font-family: 'Rajdhani', sans-serif;
+    color: #ffffff;
+}
+
+#game-container {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+}
+
+canvas#renderCanvas {
+    width: 100%;
+    height: 100%;
+    display: block;
+}
+
+/* ================= HUD ================= */
+#hud {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 10;
+}
+
+/* --- Top Left: Match Time, Ping, Mode & Team Scores --- */
+#top-left-hud {
+    position: absolute;
+    top: 16px;
+    left: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.time-ping-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.match-time-badge {
+    background: rgba(18, 20, 26, 0.88);
+    border: 2px solid #a855f7;
+    padding: 2px 10px;
+    border-radius: 4px;
+    font-family: 'Teko', sans-serif;
+    font-size: 32px;
+    line-height: 30px;
+    font-weight: 700;
+    color: #ffffff;
+    letter-spacing: 1.5px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.5);
+}
+
+.clock-icon {
+    font-size: 18px;
+    color: #c084fc;
+}
+
+#ping-display {
+    color: #00ff88;
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-shadow: 0 0 6px rgba(0, 255, 136, 0.6);
+}
+
+#fps-counter {
+    color: #00ff88;
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 1px;
+}
+
+.mode-map-row {
+    font-size: 14px;
+    font-weight: 700;
+    color: #ffffff;
+    text-shadow: 1px 1px 3px #000;
+    letter-spacing: 0.5px;
+}
+
+.map-label {
+    color: rgba(255, 255, 255, 0.7);
+    font-weight: 500;
+}
+
+.team-score-row {
+    display: flex;
+    gap: 14px;
+    font-size: 14px;
+    font-weight: 700;
+    color: #ffffff;
+    text-shadow: 1px 1px 2px #000;
+}
+
+.team-square.white { color: #ffffff; }
+.team-square.red { color: #ff3344; }
+
+/* --- Top Right: Live Leaderboard Card --- */
+#top-right-leaderboard {
+    position: absolute;
+    top: 16px;
+    right: 24px;
+    background: rgba(14, 16, 22, 0.86);
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    border-radius: 4px;
+    padding: 6px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 175px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+}
+
+.leaderboard-entry {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 14px;
+    font-weight: 700;
+    color: #e0e6ed;
+}
+
+.leaderboard-entry.rank-1 .lb-score { color: #ffcc00; }
+.leaderboard-entry.rank-2 .lb-score { color: #00ffcc; }
+
+.lb-rank {
+    color: rgba(255, 255, 255, 0.45);
+    width: 16px;
+    font-size: 13px;
+}
+
+.lb-name {
+    flex: 1;
+    text-align: left;
+    padding: 0 6px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.lb-score {
+    font-family: 'Teko', sans-serif;
+    font-size: 20px;
+    line-height: 18px;
+    color: #ffffff;
+}
+
+/* --- Krunker Razor-Sharp Crosshair (+ with center gap) --- */
+#crosshair {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+    transition: opacity 0.15s ease;
+}
+
+.crosshair-line {
+    position: absolute;
+    background-color: #ffffff;
+    box-shadow: 0 0 2px #000000, 0 0 1px #000000, 1px 1px 1px #000000;
+    transition: transform 0.05s ease-out;
+}
+
+#crosshair.firing .ch-top { transform: translateY(-4px); }
+#crosshair.firing .ch-bottom { transform: translateY(4px); }
+#crosshair.firing .ch-left { transform: translateX(-4px); }
+#crosshair.firing .ch-right { transform: translateX(4px); }
+
+.ch-top {
+    width: 2px;
+    height: 8px;
+    top: -13px;
+    left: -1px;
+}
+.ch-bottom {
+    width: 2px;
+    height: 8px;
+    top: 5px;
+    left: -1px;
+}
+.ch-left {
+    height: 2px;
+    width: 8px;
+    left: -13px;
+    top: -1px;
+}
+.ch-right {
+    height: 2px;
+    width: 8px;
+    left: 5px;
+    top: -1px;
+}
+
+/* Hitmarker */
+#hitmarker {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) scale(0.6);
+    width: 32px;
+    height: 32px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.1s ease-out, transform 0.08s cubic-bezier(0.18, 0.89, 0.32, 1.28);
+}
+
+#hitmarker.active {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1.1);
+}
+
+#hitmarker.headshot .hit-line {
+    background-color: #ff2a5f;
+    box-shadow: 0 0 8px #ff2a5f;
+}
+
+.hit-line {
+    position: absolute;
+    width: 10px;
+    height: 2px;
+    background-color: #ffffff;
+    box-shadow: 0 0 6px #ffffff;
+}
+
+.hit-tl { top: 6px; left: 6px; transform: rotate(45deg); }
+.hit-tr { top: 6px; right: 6px; transform: rotate(-45deg); }
+.hit-bl { bottom: 6px; left: 6px; transform: rotate(-45deg); }
+.hit-br { bottom: 6px; right: 6px; transform: rotate(45deg); }
+
+/* Sniper Scope Overlay */
+#sniper-scope {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: none;
+    pointer-events: none;
+    background: radial-gradient(circle at center, transparent 32%, rgba(0,0,0,0.98) 33%);
+}
+
+#sniper-scope .scope-reticle {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 100%;
+    height: 100%;
+}
+
+.scope-line-h {
+    position: absolute;
+    top: 50%;
+    left: 0;
+    width: 100%;
+    height: 1px;
+    background: rgba(255, 40, 40, 0.85);
+    box-shadow: 0 0 3px rgba(255, 40, 40, 0.6);
+}
+
+.scope-line-v {
+    position: absolute;
+    top: 0;
+    left: 50%;
+    height: 100%;
+    width: 1px;
+    background: rgba(255, 40, 40, 0.85);
+    box-shadow: 0 0 3px rgba(255, 40, 40, 0.6);
+}
+
+/* --- Bottom Left: Chat Box & Player Card --- */
+#bottom-left-hud {
+    position: absolute;
+    bottom: 22px;
+    left: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+#chat-box {
+    background: rgba(14, 16, 22, 0.82);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 4px;
+    padding: 6px 10px;
+    width: 250px;
+    font-size: 12px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+}
+
+.chat-msg {
+    margin-bottom: 3px;
+    font-weight: 600;
+    text-shadow: 1px 1px 2px #000;
+}
+
+.chat-name.pink { color: #f43f5e; font-weight: 700; }
+.chat-name.red { color: #ef4444; font-weight: 700; }
+
+.chat-input-bar {
+    margin-top: 4px;
+    border-top: 1px solid rgba(255, 255, 255, 0.12);
+    padding-top: 4px;
+    display: flex;
+    justify-content: space-between;
+    color: rgba(255, 255, 255, 0.45);
+    font-size: 11px;
+    font-weight: 600;
+}
+
+#player-card {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: rgba(14, 16, 22, 0.88);
+    border: 2px solid rgba(255, 255, 255, 0.2);
+    border-radius: 4px;
+    padding: 6px 12px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.5);
+}
+
+.player-avatar-box {
+    width: 38px;
+    height: 38px;
+    background: #23272e;
+    border: 1px solid #4a5462;
+    border-radius: 3px;
+    position: relative;
+    overflow: hidden;
+}
+
+.avatar-head {
+    width: 24px;
+    height: 24px;
+    background: #dfa07a;
+    margin: 7px auto;
+    border-radius: 2px;
+    box-shadow: inset 0 6px 0 #2e333a; /* hair */
+}
+
+.team-badge {
+    font-size: 11px;
+    text-transform: uppercase;
+    color: rgba(255, 255, 255, 0.6);
+    font-weight: 700;
+    letter-spacing: 0.5px;
+}
+
+.hp-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.hp-segments {
+    display: flex;
+    gap: 4px;
+}
+
+.hp-segment {
+    width: 28px;
+    height: 14px;
+    background: #1e2228;
+    border-radius: 2px;
+    border: 1px solid rgba(0, 0, 0, 0.8);
+    transition: background 0.15s;
+}
+
+.hp-segment.active {
+    background: #33ff33;
+    box-shadow: 0 0 6px rgba(51, 255, 51, 0.7);
+}
+
+.hp-num-group {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-family: 'Teko', sans-serif;
+    font-size: 44px;
+    line-height: 32px;
+    font-weight: 700;
+    color: #ffffff;
+    text-shadow: 2px 2px 4px #000;
+}
+
+.hp-plus {
+    color: #ef4444;
+    font-size: 28px;
+    font-weight: 900;
+}
+
+/* --- Bottom Right: Weapon Loadout & Ammo Status --- */
+#bottom-right-hud {
+    position: absolute;
+    bottom: 22px;
+    right: 24px;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 8px;
+}
+
+#weapon-loadout {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.loadout-slot {
+    background: rgba(14, 16, 22, 0.85);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 3px;
+    padding: 3px 8px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    font-size: 11px;
+    font-weight: 700;
+    color: rgba(255, 255, 255, 0.6);
+    width: 115px;
+    cursor: pointer;
+}
+
+.loadout-slot.active {
+    border-color: #ffffff;
+    background: rgba(30, 38, 48, 0.95);
+    color: #ffffff;
+    box-shadow: 0 0 8px rgba(255, 255, 255, 0.35);
+}
+
+.slot-key {
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 2px;
+    padding: 1px 5px;
+    font-size: 10px;
+}
+
+#ammo-status {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+}
+
+.ammo-numbers {
+    font-family: 'Teko', sans-serif;
+    font-size: 72px;
+    line-height: 54px;
+    font-weight: 700;
+    color: #ffffff;
+    text-shadow: 3px 3px 6px #000;
+    display: flex;
+    align-items: baseline;
+    gap: 4px;
+}
+
+.ammo-slash {
+    color: rgba(255, 255, 255, 0.5);
+    font-size: 56px;
+}
+
+.ammo-pips {
+    color: #ffcc00;
+    font-size: 42px;
+    letter-spacing: -2px;
+    margin-left: 4px;
+    text-shadow: 0 0 8px rgba(255, 204, 0, 0.6);
+}
+
+#ammo-reserve-label {
+    font-size: 11px;
+    font-weight: 700;
+    color: rgba(255, 255, 255, 0.6);
+    letter-spacing: 1px;
+}
+
+/* --- Krunker Lobby Screen Overlay --- */
+.krunker-lobby-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 20;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    pointer-events: auto;
+    background: transparent;
+}
+
+.lobby-top-bar {
+    display: flex;
+    justify-content: space-between;
+    padding: 14px 28px;
+    background: linear-gradient(180deg, rgba(0,0,0,0.7), transparent);
+}
+
+.top-nav-left, .top-nav-right {
+    display: flex;
+    gap: 18px;
+    align-items: center;
+}
+
+.nav-item {
+    font-size: 13px;
+    font-weight: 700;
+    color: #ffffff;
+    cursor: pointer;
+    text-shadow: 1px 1px 2px #000;
+    text-transform: uppercase;
+}
+
+.nav-item.gold { color: #facc15; }
+
+.lobby-center-prompt {
+    text-align: center;
+    margin: auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+}
+
+.krunker-logo-title {
+    font-family: 'Teko', sans-serif;
+    font-size: 68px;
+    line-height: 58px;
+    letter-spacing: 4px;
+    color: #ffffff;
+    text-shadow: 0 4px 14px rgba(0,0,0,0.9), 0 0 24px rgba(0,255,200,0.4);
+}
+
+.click-to-play-btn {
+    font-family: 'Teko', sans-serif;
+    font-size: 56px;
+    line-height: 50px;
+    color: #ffffff;
+    font-weight: 700;
+    text-shadow: 3px 3px 6px #000, -2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000, 2px 2px 0 #000;
+    cursor: pointer;
+    letter-spacing: 3px;
+    padding: 8px 28px;
+    transition: transform 0.12s ease-out;
+    user-select: none;
+}
+
+.click-to-play-btn:hover {
+    transform: scale(1.08);
+    color: #00ffcc;
+}
+
+.lobby-instructions {
+    font-size: 13px;
+    color: rgba(255,255,255,0.75);
+    text-shadow: 1px 1px 2px #000;
+    font-weight: 600;
+}
+
+.lobby-bottom-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    padding: 16px 28px;
+    background: linear-gradient(0deg, rgba(0,0,0,0.7), transparent);
+}
+
+.class-card {
+    background: rgba(14, 16, 22, 0.88);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 4px;
+    padding: 8px 16px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.5);
+}
+
+.class-class-title {
+    font-size: 11px;
+    text-transform: uppercase;
+    color: rgba(255, 255, 255, 0.5);
+    font-weight: 700;
+}
+
+.class-gun-name {
+    font-size: 18px;
+    font-weight: 700;
+    color: #ffffff;
+}
+
+.customize-tag {
+    border: 1px solid #00ffcc;
+    color: #00ffcc;
+    border-radius: 3px;
+    padding: 4px 10px;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.server-info {
+    font-size: 13px;
+    color: rgba(255, 255, 255, 0.85);
+    text-shadow: 1px 1px 2px #000;
+}
+
+.lobby-right-menu {
+    position: absolute;
+    right: 28px;
+    top: 50%;
+    transform: translateY(-50%);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    width: 185px;
+}
+
+.lobby-btn {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 15px;
+    font-weight: 700;
+    padding: 10px 14px;
+    border-radius: 4px;
+    border: none;
+    color: #ffffff;
+    text-align: left;
+    cursor: pointer;
+    transition: transform 0.1s, filter 0.1s;
+    letter-spacing: 0.5px;
+}
+
+.lobby-btn:hover {
+    transform: translateX(-4px);
+    filter: brightness(1.2);
+}
+
+.lobby-btn.quick-match {
+    background: linear-gradient(90deg, #9333ea, #a855f7);
+    box-shadow: 0 4px 12px rgba(147, 51, 234, 0.4);
+}
+
+.lobby-btn.ranked { background: #15803d; }
+.lobby-btn.standard { background: rgba(28, 32, 40, 0.92); border: 1px solid rgba(255, 255, 255, 0.15); }
+.lobby-btn.custom { background: #0e7490; }
+
+.weapon-name {
+    font-size: 16px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: #00ffcc;
+    font-weight: 700;
+}
+
+/* Speedometer / Slide Momentum */
+#speedometer {
+    position: absolute;
+    bottom: 95px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-family: 'Teko', sans-serif;
+    font-size: 26px;
+    letter-spacing: 1.5px;
+    color: rgba(255, 255, 255, 0.8);
+    text-shadow: 0 0 8px rgba(0, 255, 255, 0.5);
+}
+
+/* Killfeed */
+#killfeed {
+    position: absolute;
+    top: 20px;
+    right: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    pointer-events: none;
+    max-width: 320px;
+}
+
+.feed-item {
+    background: rgba(10, 15, 25, 0.85);
+    border-left: 3px solid #00ffcc;
+    padding: 6px 12px;
+    border-radius: 3px;
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    animation: slideInRight 0.25s ease-out forwards;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+}
+
+.feed-item.headshot {
+    border-left-color: #ff2a5f;
+}
+
+.feed-killer { color: #00ffcc; }
+.feed-victim { color: #ff5555; }
+.feed-icon { color: #ffbb00; font-size: 11px; }
+
+@keyframes slideInRight {
+    from { opacity: 0; transform: translateX(40px); }
+    to { opacity: 1; transform: translateX(0); }
+}
+
+/* Top Match Bar */
+#fps-counter {
+    position: absolute;
+    top: 16px;
+    left: 24px;
+    font-family: 'Teko', sans-serif;
+    font-size: 26px;
+    color: #00ff88;
+    background: rgba(10, 15, 25, 0.7);
+    padding: 2px 10px;
+    border-radius: 4px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    letter-spacing: 1px;
+}
+
+#shield-badge {
+    position: absolute;
+    top: 58%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 16px;
+    font-weight: 700;
+    color: #00ffcc;
+    background: rgba(0, 255, 204, 0.15);
+    border: 1px solid #00ffcc;
+    padding: 4px 14px;
+    border-radius: 20px;
+    letter-spacing: 1.5px;
+    box-shadow: 0 0 15px rgba(0, 255, 204, 0.4);
+    display: none;
+    pointer-events: none;
+}
+
+/* Dopamine Kill Medal Badge */
+#kill-medal-container {
+    position: absolute;
+    top: 38%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    z-index: 15;
+}
+
+.kill-medal {
+    font-family: 'Teko', sans-serif;
+    font-size: 38px;
+    line-height: 34px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    font-weight: 700;
+    color: #ffbb00;
+    text-shadow: 0 0 10px rgba(255, 187, 0, 0.8), 0 2px 4px #000;
+    animation: medalPop 0.85s cubic-bezier(0.18, 0.89, 0.32, 1.28) forwards;
+}
+
+.kill-medal.headshot {
+    color: #ff2a5f;
+    font-size: 44px;
+    text-shadow: 0 0 14px rgba(255, 42, 95, 0.9), 0 2px 6px #000;
+}
+
+.kill-medal.streak {
+    color: #00ffcc;
+    font-size: 46px;
+    text-shadow: 0 0 16px rgba(0, 255, 204, 0.9), 0 2px 6px #000;
+}
+
+.kill-pts {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 18px;
+    font-weight: 700;
+    color: #00ff88;
+    letter-spacing: 1.5px;
+    animation: floatPts 0.8s ease-out forwards;
+}
+
+@keyframes medalPop {
+    0% { transform: scale(0.4); opacity: 0; }
+    20% { transform: scale(1.2); opacity: 1; }
+    70% { transform: scale(1.0); opacity: 1; }
+    100% { transform: translateY(-30px) scale(0.9); opacity: 0; }
+}
+
+@keyframes floatPts {
+    0% { transform: translateY(0); opacity: 0; }
+    30% { transform: translateY(-5px); opacity: 1; }
+    100% { transform: translateY(-25px); opacity: 0; }
+}
+
+#match-bar {
+    position: absolute;
+    top: 16px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    background: rgba(15, 20, 30, 0.85);
+    padding: 6px 24px;
+    border-radius: 4px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 4px 16px rgba(0,0,0,0.5);
+}
+
+.match-score {
+    font-family: 'Teko', sans-serif;
+    font-size: 32px;
+    line-height: 30px;
+    font-weight: 700;
+    color: #ffffff;
+}
+
+.match-timer {
+    font-family: 'Teko', sans-serif;
+    font-size: 32px;
+    line-height: 30px;
+    color: #ffbb00;
+}
+
+.match-streak {
+    font-size: 13px;
+    letter-spacing: 1px;
+    color: #00ffcc;
+    font-weight: 700;
+}
+
+/* Damage Flash & Directional Vignette Overlay */
+#damage-vignette {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    pointer-events: none;
+    z-index: 15;
+    opacity: 0;
+    box-shadow: inset 0 0 0px 0px rgba(255, 0, 68, 0);
+    background: 
+        radial-gradient(circle at center, transparent 55%, rgba(255, 0, 68, 0.25) 100%),
+        linear-gradient(var(--hit-angle, 0deg), transparent 62%, rgba(255, 0, 68, 0.55) 100%);
+    transition: opacity 0.35s ease-out;
+}
+
+#damage-vignette.hit {
+    opacity: 1;
+    box-shadow: inset 0 0 120px 35px rgba(255, 0, 68, 0.75);
+    transition: opacity 0.05s ease-out;
+}
+
+/* ==========================================================================
+   Tactical Damage Direction Indicator (Self-Hit Overhaul)
+   ========================================================================== */
+.damage-indicator {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 240px;
+    height: 240px;
+    pointer-events: none;
+    z-index: 150;
+    transform-origin: center center;
+}
+
+.damage-indicator-wedge {
+    width: 100%;
+    height: 100%;
+    position: relative;
+    transform-origin: center center;
+    filter: drop-shadow(0 0 16px #ff0044) drop-shadow(0 0 28px rgba(255, 0, 68, 0.75));
+    animation: damageIndicatorBulge 0.55s cubic-bezier(0.14, 0.88, 0.35, 1.15) forwards;
+}
+
+.damage-indicator-svg {
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+}
+
+.damage-shield-path {
+    stroke: #ff2a5f;
+    stroke-width: 2;
+    stroke-linejoin: round;
+}
+
+.damage-tech-accent {
+    stroke: #ff4d79;
+    stroke-width: 2.5;
+    stroke-linecap: round;
+    opacity: 0.9;
+}
+
+.damage-arrow-head {
+    fill: #ffffff;
+    filter: drop-shadow(0 0 6px #ff0044) drop-shadow(0 0 10px #ff0044);
+}
+
+@keyframes damageIndicatorBulge {
+    0% {
+        transform: scale(1.3);
+        opacity: 1;
+    }
+    12% {
+        transform: scale(1.35);
+        opacity: 1;
+    }
+    30% {
+        transform: scale(1.15);
+        opacity: 0.95;
+    }
+    65% {
+        transform: scale(1.02);
+        opacity: 0.65;
+    }
+    100% {
+        transform: scale(0.92);
+        opacity: 0;
+    }
+}
+
+
+/* Floating 3D Damage Indicator Container */
+#floating-damage-container {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    overflow: hidden;
+}
+
+.dmg-number {
+    position: absolute;
+    font-family: 'Teko', sans-serif;
+    font-size: 26px;
+    font-weight: 700;
+    color: #ffd000;
+    text-shadow: 0 0 4px #000, 0 0 8px rgba(255, 200, 0, 0.8);
+    transform: translate(-50%, -50%);
+    animation: floatDamage 0.75s ease-out forwards;
+}
+
+.dmg-number.headshot {
+    color: #ff2255;
+    font-size: 34px;
+    text-shadow: 0 0 6px #000, 0 0 12px rgba(255, 34, 85, 0.9);
+}
+
+@keyframes floatDamage {
+    0% { transform: translate(-50%, -50%) scale(1.3); opacity: 1; }
+    50% { transform: translate(-50%, -80%) scale(1.0); opacity: 1; }
+    100% { transform: translate(-50%, -120%) scale(0.8); opacity: 0; }
+}
+
+/* Reload prompt */
+#reload-prompt {
+    position: absolute;
+    top: 58%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 18px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    color: #ff3366;
+    display: none;
+    animation: pulsePrompt 0.8s infinite alternate;
+}
+
+@keyframes pulsePrompt {
+    from { opacity: 0.6; transform: translate(-50%, -50%) scale(0.96); }
+    to { opacity: 1; transform: translate(-50%, -50%) scale(1.04); }
+}
+
+/* Weapon Selection Hotbar */
+#weapon-hotbar {
+    position: absolute;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 8px;
+}
+
+.hotbar-slot {
+    background: rgba(15, 20, 30, 0.8);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 4px;
+    padding: 6px 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    font-weight: 700;
+    transition: all 0.15s ease;
+}
+
+.hotbar-slot.active {
+    background: rgba(0, 255, 204, 0.25);
+    border-color: #00ffcc;
+    box-shadow: 0 0 12px rgba(0, 255, 204, 0.5);
+    transform: translateY(-4px);
+}
+
+.hotbar-key {
+    background: rgba(255, 255, 255, 0.15);
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-size: 11px;
+}
+
+/* ================= MENUS & SCREENS ================= */
+.overlay-screen {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(7, 10, 18, 0.88);
+    backdrop-filter: blur(8px);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    z-index: 100;
+}
+
+.screen-card {
+    background: rgba(18, 24, 38, 0.95);
+    border: 1px solid rgba(0, 255, 204, 0.3);
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.8), 0 0 30px rgba(0, 255, 204, 0.15);
+    border-radius: 8px;
+    padding: 36px 48px;
+    text-align: center;
+    max-width: 620px;
+    width: 90%;
+}
+
+.game-title {
+    font-family: 'Teko', sans-serif;
+    font-size: 72px;
+    line-height: 64px;
+    letter-spacing: 3px;
+    background: linear-gradient(135deg, #00ffcc 0%, #0099ff 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+}
+
+.game-subtitle {
+    font-size: 16px;
+    color: rgba(255, 255, 255, 0.7);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-bottom: 28px;
+}
+
+.action-btn {
+    background: linear-gradient(135deg, #00ffcc, #00aaff);
+    color: #0b0c10;
+    font-family: 'Teko', sans-serif;
+    font-size: 32px;
+    line-height: 32px;
+    padding: 12px 36px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: 700;
+    letter-spacing: 2px;
+    box-shadow: 0 4px 15px rgba(0, 255, 204, 0.4);
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    margin-top: 16px;
+}
+
+.action-btn:hover {
+    transform: translateY(-2px) scale(1.02);
+    box-shadow: 0 6px 22px rgba(0, 255, 204, 0.7);
+}
+
+.action-btn:active {
+    transform: translateY(1px);
+}
+
+.btn-secondary {
+    background: rgba(255, 255, 255, 0.1);
+    color: #ffffff;
+    font-size: 24px;
+    box-shadow: none;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+.btn-secondary:hover {
+    background: rgba(255, 255, 255, 0.2);
+    box-shadow: 0 0 10px rgba(255,255,255,0.2);
+}
+
+/* Control guide grid */
+.controls-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+    margin: 24px 0;
+    text-align: left;
+    background: rgba(10, 14, 22, 0.6);
+    padding: 16px;
+    border-radius: 6px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.control-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 14px;
+    color: rgba(255, 255, 255, 0.85);
+}
+
+.key-tag {
+    background: #1f2738;
+    border: 1px solid #33415c;
+    color: #00ffcc;
+    font-weight: 700;
+    font-size: 12px;
+    padding: 3px 8px;
+    border-radius: 4px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+    min-width: 24px;
+    text-align: center;
+}
+
+/* Settings sliders */
+.settings-group {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    margin: 20px 0;
+    text-align: left;
+}
+
+.setting-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 15px;
+    font-weight: 600;
+}
+
+.setting-slider {
+    width: 180px;
+    accent-color: #00ffcc;
+}
+
+/* Match Over & Leaderboard Modal */
+#scoreboard-modal.krunker-modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(4, 7, 12, 0.78);
+    backdrop-filter: blur(6px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 2000;
+    pointer-events: auto;
+    cursor: default;
+}
+
+.krunker-modal-card {
+    position: relative;
+    background: linear-gradient(180deg, #1a2029 0%, #0f131a 100%);
+    border: 2px solid #2e3b4a;
+    border-top: 4px solid #00ffcc;
+    border-radius: 6px;
+    width: 700px;
+    max-width: 92vw;
+    padding: 26px 30px;
+    box-shadow: 0 15px 60px rgba(0, 0, 0, 0.85), 0 0 25px rgba(0, 255, 204, 0.12);
+    animation: modalPop 0.2s cubic-bezier(0.18, 0.89, 0.32, 1.28);
+}
+
+@keyframes modalPop {
+    0% { transform: scale(0.92); opacity: 0; }
+    100% { transform: scale(1.0); opacity: 1; }
+}
+
+.modal-close-btn {
+    position: absolute;
+    top: 16px;
+    right: 18px;
+    width: 34px;
+    height: 34px;
+    background: rgba(255, 34, 85, 0.12);
+    border: 2px solid #ff2255;
+    color: #ff3366;
+    font-size: 18px;
+    font-weight: 900;
+    border-radius: 4px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s ease;
+    z-index: 10;
+}
+
+.modal-close-btn:hover {
+    background: #ff2255;
+    color: #ffffff;
+    transform: scale(1.1);
+    box-shadow: 0 0 16px rgba(255, 34, 85, 0.85);
+}
+
+.krunker-modal-header {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    padding-bottom: 12px;
+    margin-bottom: 16px;
+}
+
+.modal-tag {
+    font-family: 'Segoe UI', sans-serif;
+    font-size: 11px;
+    font-weight: 800;
+    color: #ffaa00;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    display: inline-block;
+    background: rgba(255, 170, 0, 0.12);
+    padding: 2px 8px;
+    border-radius: 3px;
+    border: 1px solid rgba(255, 170, 0, 0.3);
+    margin-bottom: 6px;
+}
+
+.modal-title {
+    font-family: 'Teko', sans-serif;
+    font-size: 44px;
+    letter-spacing: 2px;
+    line-height: 1;
+    margin: 4px 0 0 0;
+    color: #00ffcc;
+    text-shadow: 0 0 16px rgba(0, 255, 204, 0.4);
+}
+
+/* Match Summary Stats Banner */
+.match-summary-stats {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    margin-bottom: 18px;
+}
+
+.summary-stat-box {
+    background: rgba(14, 19, 27, 0.85);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 4px;
+    padding: 10px 12px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+
+.summary-stat-box .stat-lbl {
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.5);
+    font-weight: 700;
+    letter-spacing: 1px;
+    margin-bottom: 4px;
+}
+
+.summary-stat-box .stat-val {
+    font-family: 'Teko', sans-serif;
+    font-size: 28px;
+    font-weight: 700;
+    color: #ffffff;
+    line-height: 1;
+}
+
+.summary-stat-box .stat-val.highlight {
+    color: #00ff88;
+}
+
+.summary-stat-box .stat-val.gold {
+    color: #ffcc00;
+    text-shadow: 0 0 10px rgba(255, 204, 0, 0.4);
+}
+
+.summary-stat-box .stat-val.mvp-name {
+    font-size: 20px;
+    color: #ff5500;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 130px;
+}
+
+/* Scoreboard Table */
+.scoreboard-table-wrap {
+    max-height: 240px;
+    overflow-y: auto;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 4px;
+    background: rgba(10, 14, 20, 0.6);
+    margin-bottom: 20px;
+}
+
+table.score-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+    text-align: left;
+}
+
+table.score-table th {
+    background: rgba(20, 26, 36, 0.9);
+    color: rgba(255, 255, 255, 0.6);
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 1px;
+    padding: 8px 12px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    position: sticky;
+    top: 0;
+}
+
+table.score-table td {
+    padding: 9px 12px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+tr.player-row {
+    background: rgba(0, 255, 204, 0.12) !important;
+    color: #00ffcc;
+    font-weight: 700;
+}
+
+/* Modal Action Footer */
+.krunker-modal-footer {
+    display: flex;
+    gap: 14px;
+    justify-content: flex-end;
+}
+
+.action-btn.restart-btn {
+    background: linear-gradient(135deg, #ffaa00 0%, #ff5500 100%);
+    color: #ffffff;
+    font-family: 'Teko', sans-serif;
+    font-size: 24px;
+    letter-spacing: 1.5px;
+    padding: 10px 24px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    box-shadow: 0 4px 15px rgba(255, 110, 0, 0.4);
+    transition: all 0.15s ease;
+}
+
+.action-btn.restart-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 22px rgba(255, 110, 0, 0.7);
+    filter: brightness(1.1);
+}
+
+.action-btn.dismiss-btn {
+    background: rgba(255, 255, 255, 0.08);
+    color: #cccccc;
+    font-family: 'Teko', sans-serif;
+    font-size: 22px;
+    letter-spacing: 1px;
+    padding: 10px 20px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.action-btn.dismiss-btn:hover {
+    background: rgba(255, 255, 255, 0.16);
+    color: #ffffff;
+    border-color: rgba(255, 255, 255, 0.4);
+}
+

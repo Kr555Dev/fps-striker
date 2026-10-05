@@ -1,0 +1,46 @@
+# Node dependencies
+node_modules/
+package-lock.json
+
+# Python cache & virtual environments
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+ENV/
+
+# Visual verification & screenshots
+screenshots/
+*.png.bak
+*.jpg.bak
+
+# Testing & automated capture scripts
+test_*.py
+capture_*.py
+snap_*.py
+get_steam_*.py
+tests/
+.pytest_cache/
+test-results/
+playwright-report/
+
+# IDE & workspace files
+.vscode/
+.idea/
+*.sublime-workspace
+*.sublime-project
+.agents/
+.gemini/
+
+# OS specific files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Logs & temp files
+*.log
+*.tmp
+temp/
+tmp/
+scratch/

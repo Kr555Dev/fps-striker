@@ -1,0 +1,27 @@
+{
+  "name": "krunker-arena-3d",
+  "version": "1.0.0",
+  "description": "High-performance 3D browser-based voxel First-Person Shooter powered by Three.js and procedural Web Audio API synthesis.",
+  "main": "js/main.js",
+  "scripts": {
+    "start": "python serve.py",
+    "serve": "python serve.py",
+    "start:node": "npx serve -l 8080 .",
+    "test": "python test_all_requirements.py"
+  },
+  "keywords": [
+    "krunker",
+    "fps",
+    "threejs",
+    "webgl",
+    "voxel",
+    "browser-game",
+    "first-person-shooter",
+    "procedural-audio"
+  ],
+  "author": "Antigravity Engineering Team",
+  "license": "MIT",
+  "devDependencies": {
+    "serve": "^14.2.4"
+  }
+}
