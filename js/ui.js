@@ -8,6 +8,10 @@ class UIManager {
         this.hpBarFill = document.getElementById('hp-bar-fill');
         this.ammoCurrent = document.getElementById('ammo-current');
         this.ammoReserve = document.getElementById('ammo-reserve');
+        this.ammoStatus = document.getElementById('ammo-status');
+        this.ammoNumbers = document.querySelector('.ammo-numbers');
+        this.ammoMax = document.getElementById('ammo-max');
+        this.ammoTotal = document.getElementById('ammo-total');
         this.weaponName = document.getElementById('weapon-name');
         this.killfeed = document.getElementById('killfeed');
         this.hitmarker = document.getElementById('hitmarker');
@@ -24,6 +28,7 @@ class UIManager {
         this.hitmarkerTimeout = null;
         this.crosshairTimeout = null;
         this.vignetteTimeout = null;
+        this.ammoWarningTimeout = null;
         this.matchTimeRemaining = 180;
         this.isMatchEnded = false;
         this.timerInterval = null;
@@ -238,6 +243,9 @@ class UIManager {
             window.playerController.spawn();
             this.updateScore(0, 0);
         }
+        if (window.weaponSystem) {
+            window.weaponSystem.resetAmmo();
+        }
 
         // Reset bots
         if (window.botManager && window.botManager.bots) {
@@ -248,6 +256,15 @@ class UIManager {
                 b.spawn();
             });
         }
+
+        // Reset loot drops & arcade boosters
+        if (window.lootSystem) {
+            window.lootSystem.clearAllDrops();
+        }
+        if (window.boosterManager) {
+            window.boosterManager.reset();
+        }
+        this.clearAllBoosters();
 
         // Reset HUD team scores
         const alphaEl = document.getElementById('score-alpha');
@@ -282,13 +299,25 @@ class UIManager {
     }
 
     // Dopamine Kill Medals & Popup System
-    triggerKillMedal(streak = 1, isHeadshot = false, points = 100) {
+    triggerKillMedal(streak = 1, isHeadshot = false, points = 100, combo = 1) {
         if (!this.killMedalContainer) return;
 
         let title = 'ELIMINATED';
         let medalClass = 'kill-medal';
 
-        if (isHeadshot) {
+        if (combo === 2) {
+            title = '⚡ DOUBLE KILL!';
+            medalClass += ' streak double';
+        } else if (combo === 3) {
+            title = '⚡ TRIPLE KILL!';
+            medalClass += ' streak triple';
+        } else if (combo === 4) {
+            title = '⚡ MULTI KILL!';
+            medalClass += ' streak multi';
+        } else if (combo >= 5) {
+            title = '⚡ MEGA KILL!';
+            medalClass += ' streak mega';
+        } else if (isHeadshot) {
             title = '★ HEADSHOT!';
             medalClass += ' headshot';
         } else if (streak === 2) {
@@ -332,10 +361,12 @@ class UIManager {
         }, 75);
     }
 
-    updateHealth(hp, maxHp = 100) {
+    updateHealth(hp, maxHp = 100, shield = 0, maxShield = 50) {
         if (!this.hpVal) return;
         const current = Math.max(0, Math.round(hp));
-        this.hpVal.innerText = current;
+        if (this.hpVal.innerText !== String(current)) {
+            this.hpVal.innerText = current;
+        }
 
         // Update segmented HP blocks (1 to 5)
         const activeSegments = Math.ceil((current / maxHp) * 5);
@@ -349,17 +380,217 @@ class UIManager {
                 }
             }
         }
+
+        // Nano-Shield Armor Status
+        const shieldRow = document.getElementById('shield-row');
+        const shieldVal = document.getElementById('shield-val');
+        if (shieldRow) {
+            if (shield > 0) {
+                shieldRow.style.display = 'flex';
+                if (shieldVal) shieldVal.innerText = Math.round(shield);
+                const sActiveSegs = Math.ceil((shield / maxShield) * 3);
+                for (let i = 1; i <= 3; i++) {
+                    const sSeg = document.querySelector(`.s-seg-${i}`);
+                    if (sSeg) {
+                        if (i <= sActiveSegs) sSeg.classList.add('active');
+                        else sSeg.classList.remove('active');
+                    }
+                }
+            } else {
+                shieldRow.style.display = 'none';
+            }
+        }
     }
 
-    updateWeaponUI(weapon, ammo) {
-        if (this.ammoCurrent) this.ammoCurrent.innerText = ammo.clip;
-        const ammoMax = document.getElementById('ammo-max');
-        if (ammoMax) ammoMax.innerText = weapon.magSize;
-        if (this.ammoReserve) this.ammoReserve.innerText = ammo.reserve;
+    // ==========================================
+    // ARCADE POWER-UP & BOOSTER HUD MANAGEMENT
+    // ==========================================
+
+    showBooster(type, name, desc, duration, colorHex) {
+        const container = document.getElementById('active-boosters-hud');
+        if (!container) return;
+
+        let el = document.getElementById(`booster-banner-${type}`);
+        if (!el) {
+            el = document.createElement('div');
+            el.id = `booster-banner-${type}`;
+            el.className = `booster-banner booster-${type}`;
+            
+            const iconChar = type === 'speed' ? '⚡' : (type === 'damage' ? '⚔️' : '🛡️');
+            el.innerHTML = `
+                <div class="booster-icon-wrap">
+                    <span class="booster-icon">${iconChar}</span>
+                </div>
+                <div class="booster-body">
+                    <div class="booster-title-row">
+                        <span class="booster-title">${name}</span>
+                        <span class="booster-timer-text">${duration.toFixed(1)}s</span>
+                    </div>
+                    <div class="booster-desc-text">${desc}</div>
+                    <div class="booster-bar-track">
+                        <div class="booster-bar-fill"></div>
+                    </div>
+                </div>
+            `;
+            container.appendChild(el);
+        } else {
+            // Reset critical state if refreshed
+            el.classList.remove('critical');
+            el.classList.remove('fade-out');
+        }
+
+        // Cache references
+        el._timerText = el.querySelector('.booster-timer-text');
+        el._barFill = el.querySelector('.booster-bar-fill');
+        el._maxDuration = duration;
+    }
+
+    updateBoosters(player) {
+        if (!player || !player.boosters) return;
+
+        const types = ['speed', 'damage', 'shield'];
+        for (let i = 0; i < types.length; i++) {
+            const type = types[i];
+            const timeRemaining = player.boosters[type];
+            const el = document.getElementById(`booster-banner-${type}`);
+            if (!el) continue;
+
+            if (timeRemaining > 0) {
+                if (el._timerText) {
+                    el._timerText.innerText = `${timeRemaining.toFixed(1)}s`;
+                }
+                if (el._barFill && player.boosterMaxDurations) {
+                    const maxDur = player.boosterMaxDurations[type] || 10;
+                    const pct = Math.max(0, Math.min(100, (timeRemaining / maxDur) * 100));
+                    el._barFill.style.width = `${pct}%`;
+                }
+                if (timeRemaining <= 2.5) {
+                    el.classList.add('critical');
+                } else {
+                    el.classList.remove('critical');
+                }
+            } else {
+                this.removeBooster(type);
+            }
+        }
+    }
+
+    removeBooster(type) {
+        const el = document.getElementById(`booster-banner-${type}`);
+        if (el && el.parentNode) {
+            el.classList.add('fade-out');
+            setTimeout(() => {
+                if (el.parentNode) el.parentNode.removeChild(el);
+            }, 250);
+        }
+    }
+
+    clearAllBoosters() {
+        const container = document.getElementById('active-boosters-hud');
+        if (container) {
+            container.innerHTML = '';
+        }
+    }
+
+    triggerShieldDeflect() {
+        const vig = document.getElementById('damage-vignette');
+        if (vig) {
+            vig.classList.add('shield-deflect');
+            setTimeout(() => vig.classList.remove('shield-deflect'), 160);
+        }
+    }
+
+    updateWeaponUI(weapon, ammo, allAmmoState = null) {
+        if (!weapon || !ammo) return;
+
+        // Dirty-flagged DOM updates to prevent layout thrashing
+        const clipStr = String(ammo.clip);
+        const resStr = String(ammo.reserve);
+
+        if (this.ammoCurrent && this.ammoCurrent.textContent !== clipStr) {
+            this.ammoCurrent.textContent = clipStr;
+        }
+
+        if (this.ammoReserve && this.ammoReserve.textContent !== resStr) {
+            this.ammoReserve.textContent = resStr;
+        }
+
+        const ammoMax = this.ammoMax || document.getElementById('ammo-max');
+        if (ammoMax) {
+            const magStr = String(weapon.magSize);
+            if (ammoMax.textContent !== magStr) {
+                ammoMax.textContent = magStr;
+            }
+        }
+
+        const ammoTotal = this.ammoTotal || document.getElementById('ammo-total');
+        if (ammoTotal) {
+            const totStr = String(ammo.clip + ammo.reserve);
+            if (ammoTotal.textContent !== totStr) {
+                ammoTotal.textContent = totStr;
+            }
+        }
+
+        // Tactical Ammo Status Styling
+        const ammoStatus = this.ammoStatus || document.getElementById('ammo-status');
+        const ammoNumbers = this.ammoNumbers || document.querySelector('.ammo-numbers');
+
+        if (ammoStatus) {
+            if (ammo.clip === 0 && ammo.reserve === 0) {
+                // Completely exhausted!
+                ammoStatus.classList.add('out-of-ammo');
+                ammoStatus.classList.remove('clip-empty', 'reserve-empty');
+                if (ammoNumbers) ammoNumbers.classList.add('out-of-ammo');
+            } else if (ammo.clip === 0 && ammo.reserve > 0) {
+                // Magazine empty, but reserves available
+                ammoStatus.classList.add('clip-empty');
+                ammoStatus.classList.remove('out-of-ammo', 'reserve-empty');
+                if (ammoNumbers) ammoNumbers.classList.remove('out-of-ammo');
+            } else if (ammo.reserve === 0 && ammo.clip > 0) {
+                // Chamber has bullets, but reserve pool is empty
+                ammoStatus.classList.add('reserve-empty');
+                ammoStatus.classList.remove('out-of-ammo', 'clip-empty');
+                if (ammoNumbers) ammoNumbers.classList.remove('out-of-ammo');
+            } else {
+                // Fully supplied
+                ammoStatus.classList.remove('out-of-ammo', 'clip-empty', 'reserve-empty');
+                if (ammoNumbers) ammoNumbers.classList.remove('out-of-ammo');
+            }
+        }
+
+        // Hotbar / Loadout slots ammo status indicators
+        const states = allAmmoState || (window.weaponSystem ? window.weaponSystem.ammoState : null);
+        if (states) {
+            Object.keys(states).forEach(key => {
+                const slotAmmoEl = document.getElementById(`slot-ammo-${key}`);
+                const slotEl = document.querySelector(`.loadout-slot[data-slot="${key}"]`);
+                const st = states[key];
+                if (slotAmmoEl && st) {
+                    const str = `${st.clip}/${st.reserve}`;
+                    if (slotAmmoEl.textContent !== str) {
+                        slotAmmoEl.textContent = str;
+                    }
+                    if (st.clip === 0 && st.reserve === 0) {
+                        slotAmmoEl.classList.add('empty');
+                    } else {
+                        slotAmmoEl.classList.remove('empty');
+                    }
+                }
+                if (slotEl && st) {
+                    if (st.clip === 0 && st.reserve === 0) {
+                        slotEl.classList.add('depleted');
+                    } else {
+                        slotEl.classList.remove('depleted');
+                    }
+                }
+            });
+        }
 
         // Update lobby weapon name if present
         const classGun = document.querySelector('.class-gun-name');
-        if (classGun) classGun.innerText = weapon.name;
+        if (classGun && classGun.textContent !== weapon.name) {
+            classGun.textContent = weapon.name;
+        }
     }
 
     setActiveHotbarSlot(key) {
@@ -389,12 +620,34 @@ class UIManager {
         }, 120);
     }
 
+    showAmmoWarning(text = 'OUT OF AMMO') {
+        if (!this.reloadPrompt) return;
+        this.reloadPrompt.textContent = text;
+        this.reloadPrompt.classList.add('ammo-depleted-warning');
+        this.reloadPrompt.style.display = 'block';
+
+        if (this.ammoWarningTimeout) clearTimeout(this.ammoWarningTimeout);
+        this.ammoWarningTimeout = setTimeout(() => {
+            if (this.reloadPrompt && this.reloadPrompt.classList.contains('ammo-depleted-warning')) {
+                this.reloadPrompt.style.display = 'none';
+                this.reloadPrompt.classList.remove('ammo-depleted-warning');
+                this.reloadPrompt.textContent = 'PRESS [R] TO RELOAD';
+            }
+        }, 1200);
+    }
+
     showReloadPrompt() {
-        if (this.reloadPrompt) this.reloadPrompt.style.display = 'block';
+        if (!this.reloadPrompt) return;
+        this.reloadPrompt.classList.remove('ammo-depleted-warning');
+        this.reloadPrompt.textContent = 'PRESS [R] TO RELOAD';
+        this.reloadPrompt.style.display = 'block';
     }
 
     hideReloadPrompt() {
-        if (this.reloadPrompt) this.reloadPrompt.style.display = 'none';
+        if (this.reloadPrompt) {
+            this.reloadPrompt.style.display = 'none';
+            this.reloadPrompt.classList.remove('ammo-depleted-warning');
+        }
     }
 
     updateScore(score, streak) {
@@ -558,6 +811,12 @@ class UIManager {
             `;
         });
         this.scoreboardBody.innerHTML = html;
+    }
+
+    clearAllBoosters() {
+        // Clear booster UI indicators if present
+        const boosterContainer = document.getElementById('booster-container');
+        if (boosterContainer) boosterContainer.innerHTML = '';
     }
 }
 

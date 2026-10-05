@@ -128,19 +128,72 @@ class ParticleEngine {
         }
     }
 
-    // 5. Floating 3D Damage Indicator
+    // 5. Booster / Power-Up Activation Particle Burst
+    createBoosterPickupEffect(position, color = 0x00ffcc) {
+        const count = 22;
+        const mat = new THREE.MeshBasicMaterial({ color: color });
+        for (let i = 0; i < count; i++) {
+            const mesh = new THREE.Mesh(this.sparkGeo, mat);
+            mesh.position.copy(position);
+            mesh.position.x += (Math.random() - 0.5) * 0.5;
+            mesh.position.y += 0.8 + (Math.random() - 0.5) * 0.5;
+            mesh.position.z += (Math.random() - 0.5) * 0.5;
+
+            const angle = Math.random() * Math.PI * 2;
+            const speed = 3.5 + Math.random() * 5.0;
+            const vx = Math.cos(angle) * speed;
+            const vy = 2.5 + Math.random() * 4.5;
+            const vz = Math.sin(angle) * speed;
+
+            this.scene.add(mesh);
+            this.particles.push({
+                mesh: mesh,
+                velocity: new THREE.Vector3(vx, vy, vz),
+                rotVel: new THREE.Vector3(Math.random() * 12, Math.random() * 12, Math.random() * 12),
+                gravity: -12,
+                life: 0.5 + Math.random() * 0.35,
+                maxLife: 0.85
+            });
+        }
+    }
+
+    // 6. Floating 3D Damage Indicator & Notifications
     addDamageNumber(damage, worldPos, isHeadshot = false) {
         if (!this.damageContainer) return;
         const div = document.createElement('div');
-        div.className = `dmg-number ${isHeadshot ? 'headshot' : ''}`;
-        div.innerText = isHeadshot ? `CRIT ${damage}!` : `${damage}`;
+        let cls = 'dmg-number';
+        let txt = damage;
+
+        if (typeof damage === 'string' && (damage.includes('AMMO') || damage.includes('+') || damage.includes('FULL') || damage.includes('SHELL'))) {
+            cls = damage.includes('FULL') ? 'dmg-number ammo-full' : 'dmg-number ammo-pickup';
+        } else if (isHeadshot) {
+            cls = 'dmg-number headshot';
+            txt = `CRIT ${damage}!`;
+        }
+        div.className = cls;
+        div.innerText = txt;
         this.damageContainer.appendChild(div);
 
         this.floatingDamages.push({
             el: div,
-            pos3D: worldPos.clone().add(new THREE.Vector3((Math.random() - 0.5) * 0.4, 1.2, (Math.random() - 0.5) * 0.4)),
-            life: 0.75,
-            maxLife: 0.75
+            pos3D: worldPos.clone().add(new THREE.Vector3((Math.random() - 0.5) * 0.35, 1.1, (Math.random() - 0.5) * 0.35)),
+            life: 0.85,
+            maxLife: 0.85
+        });
+    }
+
+    addFloatingText(text, worldPos, customClass = 'ammo-pickup') {
+        if (!this.damageContainer) return;
+        const div = document.createElement('div');
+        div.className = `dmg-number ${customClass}`;
+        div.innerText = text;
+        this.damageContainer.appendChild(div);
+
+        this.floatingDamages.push({
+            el: div,
+            pos3D: worldPos.clone().add(new THREE.Vector3((Math.random() - 0.5) * 0.3, 0.9, (Math.random() - 0.5) * 0.3)),
+            life: 0.95,
+            maxLife: 0.95
         });
     }
 

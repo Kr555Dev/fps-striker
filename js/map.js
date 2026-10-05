@@ -185,9 +185,13 @@ class GameMap {
         this.addBox(towerX - 8.5, 10.5, towerZ, 1, 2.2, 16, this.materials.sandBrick);
         this.addBox(towerX + 8.5, 10.5, towerZ, 1, 2.2, 16, this.materials.sandBrick);
 
-        // Ramp up to Tower
-        for (let i = 0; i < 8; i++) {
-            this.addBox(towerX - 12 - (i * 2.2), 0.5 + (i * 0.95), towerZ, 2.4, 1.0 + (i * 1.9), 5, this.materials.diamondPlate, true, true);
+        // Ramp up to Tower (16 climbable steps with 0.55m riser height)
+        for (let i = 0; i < 16; i++) {
+            const stepTop = 0.55 + (i * 0.55);
+            const stepH = stepTop;
+            const stepY = stepH / 2;
+            const stepX = 35.5 - (i * 1.2);
+            this.addBox(stepX, stepY, towerZ, 1.3, stepH, 5, this.materials.diamondPlate, true, true);
         }
 
         // 5. South-West Elevated Fortress
@@ -199,9 +203,13 @@ class GameMap {
         this.addBox(fortX + 10.5, 8.5, fortZ, 1, 2, 20, this.materials.concrete);
         this.addBox(fortX, 8.5, fortZ + 10.5, 20, 2, 1, this.materials.concrete);
 
-        // Ramp up to Fort
-        for (let i = 0; i < 7; i++) {
-            this.addBox(fortX, 0.5 + (i * 0.95), fortZ - 13 - (i * 2.2), 5, 1.0 + (i * 1.9), 2.4, this.materials.diamondPlate, true, true);
+        // Ramp up to Fort (13 climbable steps with 0.52m riser height)
+        for (let i = 0; i < 13; i++) {
+            const stepTop = 0.55 + (i * 0.52);
+            const stepH = stepTop;
+            const stepY = stepH / 2;
+            const stepZ = 18.0 + (i * 1.2);
+            this.addBox(fortX, stepY, stepZ, 5, stepH, 1.3, this.materials.diamondPlate, true, true);
         }
 
         // Skybridge Overlook
@@ -304,7 +312,10 @@ class GameMap {
 
         for (let i = 0; i < this.colliders.length; i++) {
             const c = this.colliders[i];
-            if (c.isRamp || c.max.y <= 0.1) continue;
+            if (c.max.y <= 0.1) continue;
+            // Ramp allows walking across surface if character's feet/base is near or above step top
+            if (c.isRamp && pos.y >= c.max.y - 0.5) continue;
+
             if (minX < c.max.x && maxX > c.min.x &&
                 minY < c.max.y && maxY > c.min.y &&
                 minZ < c.max.z && maxZ > c.min.z) {
@@ -322,7 +333,8 @@ class GameMap {
         for (let pass = 0; pass < 2; pass++) {
             for (let i = 0; i < this.colliders.length; i++) {
                 const c = this.colliders[i];
-                if (c.isRamp || c.max.y <= 0.1) continue;
+                if (c.max.y <= 0.1) continue;
+                if (c.isRamp && pos.y >= c.max.y - 0.5) continue;
                 if (maxY <= c.min.y || minY >= c.max.y) continue;
 
                 const minX = pos.x - radius;

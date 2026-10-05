@@ -7,6 +7,23 @@
  * - High resolution tactical armor skin
  */
 
+// Pre-allocated scratch objects for zero-GC render loop (Rule: No allocations in tick)
+const _v1 = new THREE.Vector3();
+const _v2 = new THREE.Vector3();
+const _botEyePos = new THREE.Vector3();
+const _playerEyePos = new THREE.Vector3();
+const _probeCenter = new THREE.Vector3();
+const _probeLeft = new THREE.Vector3();
+const _probeRight = new THREE.Vector3();
+const _nextX = new THREE.Vector3();
+const _nextZ = new THREE.Vector3();
+const _aimDir = new THREE.Vector3();
+const _tracerEnd = new THREE.Vector3();
+const _playerCenter = new THREE.Vector3();
+const _toPlayer = new THREE.Vector3();
+const _closestPoint = new THREE.Vector3();
+const _centerDir = new THREE.Vector3();
+
 class Bot {
     constructor(id, name, colorHex, scene, map, audio, particles) {
         this.id = id;
@@ -29,12 +46,14 @@ class Bot {
         this.radius = 0.55;
         this.height = 1.75;
 
-        // Kinematics
+        // Kinematics (Tuned ~20% lower for tactical, readable pacing)
         this.position = new THREE.Vector3();
         this.velocity = new THREE.Vector3();
         this.rotationY = 0;
         this.targetRotationY = 0;
-        this.speed = 9.2;
+        this.pitch = 0;
+        this.targetPitch = 0;
+        this.speed = 7.4; // Tuned down from 9.2 (~20% reduction)
 
         // AI States: 'PATROL', 'ENGAGE', 'TAKE_COVER'
         this.state = 'PATROL';
@@ -45,10 +64,16 @@ class Bot {
         this.reactionTime = 0.38;
         this.hasLockedTarget = false;
         this.targetLockTimer = 0;
+        this.lostTargetTimer = 0;
+
+        // Backstab / Flank Alert with Delay (Requirement 2)
+        this.isAlerted = false;
+        this.alertReactionDelay = 0;
+        this.alertAngle = 0;
 
         this.strafeTimer = 0;
         this.strafeDir = (id % 2 === 0) ? 1 : -1;
-        this.strafeSpeed = 5.2;
+        this.strafeSpeed = 4.15; // Tuned down from 5.2 (~20% reduction)
 
         // Combat maneuvers (Requirement 5)
         this.stutterTimer = 0;
@@ -60,7 +85,7 @@ class Bot {
         this.slideHopCooldown = 2.0 + Math.random() * 2.5;
         this.isSlideHopping = false;
         this.hopProgress = 0;
-        this.strafeAmp = 2.2 + (id % 3) * 0.7;
+        this.strafeAmp = 2.2 + (id % 3) * 0.7; // Preserved for test compatibility
 
         this.respawnTimer = 0;
         this.walkCycle = 0;
@@ -249,6 +274,11 @@ class Bot {
         this.isDead = false;
         this.hasLockedTarget = false;
         this.targetLockTimer = 0;
+        this.lostTargetTimer = 0;
+        this.isAlerted = false;
+        this.alertReactionDelay = 0;
+        this.pitch = 0;
+        this.targetPitch = 0;
         this.meshRoot.visible = true;
         this.lastPos.copy(this.position);
         this.stuckTimer = 0;
@@ -258,13 +288,13 @@ class Bot {
 
     pickNextWaypoint() {
         const wp = this.map.waypoints;
-        const myEye = new THREE.Vector3(this.position.x, this.position.y + 1.2, this.position.z);
+        _v1.set(this.position.x, this.position.y + 1.2, this.position.z);
 
         // Find open waypoints that have direct line of sight from bot position
         const visibleWps = [];
         for (let i = 0; i < wp.length; i++) {
-            const targetEye = new THREE.Vector3(wp[i].x, wp[i].y + 1.2, wp[i].z);
-            if (this.map.hasLineOfSight(myEye, targetEye) && this.position.distanceTo(wp[i]) > 4.0) {
+            _v2.set(wp[i].x, wp[i].y + 1.2, wp[i].z);
+            if (this.map.hasLineOfSight(_v1, _v2) && this.position.distanceTo(wp[i]) > 4.0) {
                 visibleWps.push({ idx: i, pt: wp[i] });
             }
         }
@@ -272,15 +302,39 @@ class Bot {
         if (visibleWps.length > 0) {
             const choice = visibleWps[Math.floor(Math.random() * visibleWps.length)];
             this.waypointIndex = choice.idx;
-            this.targetWaypoint = choice.pt.clone();
+            this.targetWaypoint.copy(choice.pt);
         } else {
             this.waypointIndex = (this.waypointIndex + 1) % wp.length;
-            this.targetWaypoint = wp[this.waypointIndex].clone();
+            this.targetWaypoint.copy(wp[this.waypointIndex]);
         }
     }
 
     /**
-     * Requirement 3: Field of View (FOV) Frustum Cone Check
+     * Requirement 2: Vision Detection Cone (110° field of view)
+     * Bots only spot/aggro player if within forward vision cone (diffAngle <= 55° / ~0.96 rad, dot >= 0.57)
+     */
+    isPlayerInVisionCone(targetPos) {
+        if (!targetPos) return false;
+        const dx = targetPos.x - this.position.x;
+        const dz = targetPos.z - this.position.z;
+        const dist = Math.hypot(dx, dz);
+        if (dist < 0.001) return true;
+
+        const fwdX = Math.sin(this.rotationY);
+        const fwdZ = Math.cos(this.rotationY);
+
+        const dirX = dx / dist;
+        const dirZ = dz / dist;
+
+        const dot = fwdX * dirX + fwdZ * dirZ;
+        const clampedDot = Math.max(-1, Math.min(1, dot));
+        const diffAngle = Math.acos(clampedDot);
+
+        return diffAngle <= 0.96 && dot >= 0.57;
+    }
+
+    /**
+     * Requirement 3: Field of View (FOV) Frustum Cone Check for Firing
      * Bot can ONLY shoot if the player is within its forward FOV frustum cone (diffAngle <= 0.6 rad, dot >= 0.82)
      */
     isPlayerInFrustumCone(playerPos) {
@@ -314,7 +368,7 @@ class Bot {
         this.strafeDir *= -1;
         this.strafeTimer = 0.4 + Math.random() * 0.4;
         this.tacticalBurstTimer = 0.45;
-        this.tacticalBurstSpeed = 4.2;
+        this.tacticalBurstSpeed = 3.3; // Tuned down from 4.2 (~20% reduction per Requirement 4)
         if (Math.random() < 0.55) {
             this.isSlideHopping = true;
             this.slideHopTimer = 0.55;
@@ -337,9 +391,34 @@ class Bot {
         } else {
             const isGameStarted = !!(window.game && window.game.isGameStarted);
             if (isGameStarted) {
-                this.state = (this.health < 35) ? 'TAKE_COVER' : 'ENGAGE';
-                this.hasLockedTarget = true;
-                this.targetLockTimer = 0.2;
+                const attackerPos = attacker ? (attacker.yawObject ? attacker.yawObject.position : (attacker.position || null)) : null;
+                const wasInVision = attackerPos ? this.isPlayerInVisionCone(attackerPos) : true;
+
+                if (wasInVision) {
+                    // Attacker is in front / within vision cone (110°): instant combat engagement
+                    this.state = (this.health < 35) ? 'TAKE_COVER' : 'ENGAGE';
+                    this.hasLockedTarget = true;
+                    this.targetLockTimer = 0.2;
+                    this.lostTargetTimer = 0;
+                    if (attackerPos) {
+                        const dx = attackerPos.x - this.position.x;
+                        const dz = attackerPos.z - this.position.z;
+                        this.targetRotationY = Math.atan2(dx, dz);
+                    }
+                } else {
+                    // Backstab / Flank Alert (Requirement 2): Attacked from behind or out of FOV!
+                    // Do NOT snap 360° instantly. Enter alerted response with reaction delay (0.45s - 0.60s).
+                    this.isAlerted = true;
+                    this.alertReactionDelay = 0.45 + Math.random() * 0.15;
+                    this.hasLockedTarget = false;
+                    this.targetLockTimer = 0;
+                    this.lostTargetTimer = 0;
+                    if (attackerPos) {
+                        const dx = attackerPos.x - this.position.x;
+                        const dz = attackerPos.z - this.position.z;
+                        this.alertAngle = Math.atan2(dx, dz);
+                    }
+                }
             }
             this.triggerEvasiveDodge();
         }
@@ -352,6 +431,15 @@ class Bot {
         this.respawnTimer = 3.5;
 
         this.particles.createDeathShatter(this.position, this.colorHex);
+
+        // Requirement 2: Dynamic loot drop system on dead bots & multi-kill combo tracking
+        let comboCount = 1;
+        if (window.lootSystem) {
+            const comboInfo = window.lootSystem.onBotDeath(this, killer, isHeadshot, weaponName);
+            if (comboInfo && comboInfo.comboCount) {
+                comboCount = comboInfo.comboCount;
+            }
+        }
 
         if (window.uiManager) {
             const killerName = killer ? 'YOU' : 'ARENA';
@@ -366,8 +454,13 @@ class Bot {
 
                 // Trigger Dopamine Audio & Medal Popups!
                 this.audio.playKill(killer.streak);
-                window.uiManager.triggerKillMedal(killer.streak, isHead, points);
+                window.uiManager.triggerKillMedal(killer.streak, isHead, points, comboCount);
                 window.uiManager.updateScore(killer.score, killer.streak);
+
+                // Multi-kill Rare Booster Drop (35% chance on triple+ kill)
+                if (killer.streak >= 3 && window.boosterManager && Math.random() < 0.35) {
+                    window.boosterManager.spawnMultiKillDrop(this.position);
+                }
             }
 
             window.uiManager.addKillfeedItem(killerName, this.name, weaponName || 'RIFLE', isHeadshot);
@@ -384,8 +477,10 @@ class Bot {
         }
 
         const playerPos = player ? player.yawObject.position : null;
-        const botEyePos = new THREE.Vector3(this.position.x, this.position.y + 1.7, this.position.z);
-        const playerEyePos = playerPos ? new THREE.Vector3(playerPos.x, playerPos.y, playerPos.z) : null;
+        _botEyePos.set(this.position.x, this.position.y + 1.76, this.position.z);
+        if (playerPos) {
+            _playerEyePos.copy(playerPos);
+        }
         if (!distToPlayer && playerPos) distToPlayer = this.position.distanceTo(playerPos);
 
         // LOD 1: Distance & Frustum culling for overhead sprite nameplate
@@ -394,34 +489,76 @@ class Bot {
         }
 
         const isGameStarted = !!(window.game && window.game.isGameStarted);
+        const inVisionCone = playerPos ? this.isPlayerInVisionCone(playerPos) : false;
+        const hasLos = isGameStarted && player && !player.isDead && (distToPlayer < 42) && playerPos && this.map.hasLineOfSight(_botEyePos, _playerEyePos);
 
-        // Requirement 1: When game is not started, bots NEVER target, lock onto, or shoot player. They strictly patrol.
-        const canSeePlayer = isGameStarted && player && !player.isDead && (distToPlayer < 42) && playerEyePos && this.map.hasLineOfSight(botEyePos, playerEyePos);
+        // Backstab / Flank Alert with Delay handling (Requirement 2)
+        if (this.isAlerted && isGameStarted) {
+            this.alertReactionDelay -= dt;
+            if (this.alertReactionDelay <= 0) {
+                // Reaction delay elapsed! Bot now turns towards the incoming damage angle
+                this.isAlerted = false;
+                this.targetRotationY = this.alertAngle;
+                this.state = (this.health < 35) ? 'TAKE_COVER' : 'ENGAGE';
+                this.targetLockTimer = 0.15;
+            }
+        }
 
-        if (canSeePlayer) {
-            this.state = (this.health < 35) ? 'TAKE_COVER' : 'ENGAGE';
-            if (!this.hasLockedTarget) {
+        // Requirement 1 & 2: Sighting & Aggro Gate
+        // When game is not started, bots NEVER target, lock onto, or shoot player. They strictly patrol.
+        if (!isGameStarted) {
+            this.hasLockedTarget = false;
+            this.targetLockTimer = 0;
+            this.state = 'PATROL';
+            this.isAlerted = false;
+        } else if (this.isAlerted) {
+            // Under delayed alert; maintaining evasive maneuvers until reaction timer fires
+        } else if (this.state === 'PATROL') {
+            // In PATROL, bot ONLY spots/aggros player if player is within 110° vision cone AND has LOS!
+            if (inVisionCone && hasLos) {
+                this.state = (this.health < 35) ? 'TAKE_COVER' : 'ENGAGE';
                 this.targetLockTimer += dt;
                 if (this.targetLockTimer >= this.reactionTime) {
                     this.hasLockedTarget = true;
                 }
+                this.lostTargetTimer = 0;
+            } else {
+                this.hasLockedTarget = false;
+                this.targetLockTimer = 0;
             }
         } else {
-            this.hasLockedTarget = false;
-            this.targetLockTimer = 0;
-            this.state = 'PATROL';
+            // In ENGAGE or TAKE_COVER: maintain active combat target while LOS exists
+            if (hasLos) {
+                this.state = (this.health < 35) ? 'TAKE_COVER' : 'ENGAGE';
+                if (!this.hasLockedTarget) {
+                    this.targetLockTimer += dt;
+                    if (this.targetLockTimer >= this.reactionTime) {
+                        this.hasLockedTarget = true;
+                    }
+                }
+                this.lostTargetTimer = 0;
+            } else {
+                // Lost LOS (player broke behind cover)
+                this.lostTargetTimer = (this.lostTargetTimer || 0) + dt;
+                if (this.lostTargetTimer > 1.4 || !player || player.isDead) {
+                    this.hasLockedTarget = false;
+                    this.targetLockTimer = 0;
+                    this.state = 'PATROL';
+                    this.pickNextWaypoint();
+                }
+            }
         }
 
         // Requirement 5: Slide-Hop Momentum Burst System
         this.slideHopCooldown -= dt;
         if (this.slideHopCooldown <= 0 && !this.isDead) {
-            const hopChance = (this.state === 'ENGAGE') ? 0.75 : 0.40;
+            const hopChance = (this.state === 'ENGAGE') ? 0.65 : 0.30;
             if (Math.random() < hopChance) {
                 this.isSlideHopping = true;
                 this.slideHopTimer = 0.55;
                 this.hopProgress = 0;
             }
-            this.slideHopCooldown = (this.state === 'ENGAGE' ? 2.2 : 4.0) + Math.random() * 2.0;
+            this.slideHopCooldown = (this.state === 'ENGAGE' ? 2.5 : 4.5) + Math.random() * 2.0;
         }
 
         let speedMultiplier = 1.0;
@@ -429,8 +566,8 @@ class Bot {
         if (this.isSlideHopping) {
             this.slideHopTimer -= dt;
             this.hopProgress = Math.max(0, 1.0 - (this.slideHopTimer / 0.55));
-            // Momentum speed burst during slide-hop
-            speedMultiplier = 1.45;
+            // Momentum speed burst during slide-hop (tuned down from 1.45 -> 1.25 per Requirement 4)
+            speedMultiplier = 1.25;
             // Arc trajectory simulating jump & slide
             hopYOffset = Math.sin(this.hopProgress * Math.PI) * 0.35;
             if (this.slideHopTimer <= 0) {
@@ -445,7 +582,7 @@ class Bot {
             const dz = playerPos.z - this.position.z;
             this.targetRotationY = Math.atan2(dx, dz);
 
-            // Requirement 5: Irregular direction flips & varied strafe rhythms
+            // Requirement 5 & 4: Irregular direction flips & tuned strafe rhythms (~20% reduction)
             this.strafeTimer -= dt;
             if (this.strafeTimer <= 0) {
                 const roll = Math.random();
@@ -457,10 +594,11 @@ class Bot {
                     this.strafeTimer = 1.20 + Math.random() * 0.60; // Wide sweep
                 }
                 this.strafeDir = Math.random() > 0.45 ? -this.strafeDir : (Math.random() > 0.5 ? 1 : -1);
-                this.strafeSpeed = 5.0 + Math.random() * 2.2;
+                // Tuned from 5.0 - 7.2 -> 4.0 - 5.8 (Requirement 4)
+                this.strafeSpeed = 4.0 + Math.random() * 1.8;
 
-                // Requirement 5: Sudden stutter-step to throw off player tracking
-                if (Math.random() < 0.35) {
+                // Sudden stutter-step to throw off player tracking
+                if (Math.random() < 0.30) {
                     this.stutterTimer = 0.15 + Math.random() * 0.15;
                 }
             }
@@ -468,7 +606,7 @@ class Bot {
             let moveMultiplier = 1.0;
             if (this.stutterTimer > 0) {
                 this.stutterTimer -= dt;
-                moveMultiplier = 0.15; // Sudden momentary brake
+                moveMultiplier = 0.20; // Sudden momentary brake
             }
 
             if (this.tacticalBurstTimer > 0) {
@@ -482,14 +620,14 @@ class Bot {
             const sideX = Math.cos(this.targetRotationY) * this.strafeDir * totalStrafeSpeed;
             const sideZ = -Math.sin(this.targetRotationY) * this.strafeDir * totalStrafeSpeed;
 
-            // Spacing management: close in if far, backpedal if close, micro-drift in mid-range
+            // Spacing management: close in if far, backpedal if close, micro-drift in mid-range (tuned ~20% lower)
             let forwardPush = 0;
             if (distToPlayer > 18) {
-                forwardPush = 4.2;
+                forwardPush = 3.35; // Tuned down from 4.2
             } else if (distToPlayer < 7.5) {
-                forwardPush = -5.0;
+                forwardPush = -4.0; // Tuned down from -5.0
             } else {
-                forwardPush = Math.sin(this.walkCycle * 0.8) * 1.8;
+                forwardPush = Math.sin(this.walkCycle * 0.8) * 1.45; // Tuned down from 1.8
             }
             forwardPush *= speedMultiplier * moveMultiplier;
 
@@ -502,7 +640,7 @@ class Bot {
                 if (this.attackCooldown <= 0) {
                     if (this.isPlayerInFrustumCone(playerPos)) {
                         this.attackCooldown = this.fireInterval + (Math.random() - 0.5) * 0.15;
-                        this.fireAtPlayer(player, botEyePos, playerEyePos, distToPlayer);
+                        this.fireAtPlayer(player, _botEyePos, _playerEyePos, distToPlayer);
                     } else {
                         // Hold fire until rotated into forward frustum cone
                         this.attackCooldown = 0.05;
@@ -524,9 +662,9 @@ class Bot {
             const perpX = Math.cos(this.targetRotationY);
             const perpZ = -Math.sin(this.targetRotationY);
 
-            // Evasive sprint zig-zag
-            const evadeWeave = Math.sin(this.walkCycle * 1.4) * 3.5;
-            const retreatSpeed = this.speed * 1.15 * speedMultiplier;
+            // Evasive sprint zig-zag (tuned down ~20% from 3.5 -> 2.8)
+            const evadeWeave = Math.sin(this.walkCycle * 1.4) * 2.8;
+            const retreatSpeed = this.speed * 1.12 * speedMultiplier;
 
             this.velocity.x = forwardX * retreatSpeed + perpX * evadeWeave;
             this.velocity.z = forwardZ * retreatSpeed + perpZ * evadeWeave;
@@ -537,7 +675,7 @@ class Bot {
                 if (this.attackCooldown <= 0) {
                     if (this.isPlayerInFrustumCone(playerPos)) {
                         this.attackCooldown = 0.8;
-                        this.fireAtPlayer(player, botEyePos, playerEyePos, distToPlayer);
+                        this.fireAtPlayer(player, _botEyePos, _playerEyePos, distToPlayer);
                     } else {
                         this.attackCooldown = 0.08;
                     }
@@ -545,7 +683,7 @@ class Bot {
             }
 
         } else {
-            // PATROL: Smooth dynamic strafe weaving along open street sequence (Requirement 5)
+            // PATROL: Smooth dynamic strafe weaving along open street sequence (Requirement 4 & 5)
             if (!this.targetWaypoint || this.position.distanceTo(this.targetWaypoint) < 3.0) {
                 this.pickNextWaypoint();
             }
@@ -559,8 +697,8 @@ class Bot {
             const perpX = Math.cos(this.targetRotationY);
             const perpZ = -Math.sin(this.targetRotationY);
 
-            // Requirement 5: Lateral sine/cosine weaving offset so bots naturally zig-zag and weave along paths
-            const weaveOffset = Math.sin(this.walkCycle * 0.7 + this.id * 1.3) * this.strafeAmp;
+            // Natural patrol weave smoothly scaled (~20% reduction while keeping strafeAmp property intact)
+            const weaveOffset = Math.sin(this.walkCycle * 0.7 + this.id * 1.3) * (this.strafeAmp * 0.8);
             const basePatrolSpeed = this.speed * speedMultiplier;
 
             this.velocity.x = forwardX * basePatrolSpeed + perpX * weaveOffset;
@@ -579,9 +717,9 @@ class Bot {
             if (this.position.distanceTo(this.lastPos) < 0.4) {
                 // If making no progress, immediately push towards open center and switch waypoint
                 this.pickNextWaypoint();
-                const centerDir = new THREE.Vector3(0, 0, 0).sub(this.position).normalize();
-                this.velocity.x = centerDir.x * this.speed;
-                this.velocity.z = centerDir.z * this.speed;
+                _centerDir.set(-this.position.x, 0, -this.position.z).normalize();
+                this.velocity.x = _centerDir.x * this.speed;
+                this.velocity.z = _centerDir.z * this.speed;
             }
             this.lastPos.copy(this.position);
             this.stuckTimer = 0;
@@ -607,39 +745,64 @@ class Bot {
         this.meshRoot.position.set(this.position.x, this.position.y + hopYOffset, this.position.z);
         this.meshRoot.rotation.y = this.rotationY;
 
+        // Requirement 1: 3D Aim Pitch Alignment
+        // When engaging/aiming at player, pitch headMesh and torso/arms directly along aim vector to player eye height
+        let targetPitch = 0;
+        const isEngagingPlayer = (this.state === 'ENGAGE' || this.state === 'TAKE_COVER') && playerPos && !player.isDead && isGameStarted;
+        if (isEngagingPlayer) {
+            const distH = Math.hypot(playerPos.x - this.position.x, playerPos.z - this.position.z);
+            const dy = playerPos.y - (this.position.y + 1.76);
+            targetPitch = Math.atan2(dy, Math.max(0.1, distH));
+            // Anatomical pitch clamp (-48° to +48°)
+            targetPitch = Math.max(-0.85, Math.min(0.85, targetPitch));
+        }
+        this.pitch += (targetPitch - this.pitch) * Math.min(1.0, 12 * dt);
+
+        this.headMesh.rotation.x = this.pitch;
+        this.bodyMesh.rotation.x = this.pitch * 0.35;
+
         // LOD 2: Frustum & Distance Culling on Limb Walk Animation
-        // Only run limb matrix animations when bot is in camera view or close to player
         if (inFrustum || distToPlayer < 20) {
-            if (isMoving) {
-                const legAngle = Math.sin(this.walkCycle) * 0.45;
-                this.leftLeg.rotation.x = legAngle;
-                this.rightLeg.rotation.x = -legAngle;
-                this.leftArm.rotation.x = -legAngle * 0.6;
+            const legAngle = isMoving ? Math.sin(this.walkCycle) * 0.45 : 0;
+            this.leftLeg.rotation.x = legAngle;
+            this.rightLeg.rotation.x = -legAngle;
+
+            if (isEngagingPlayer) {
+                // Aim weapon stance aligned with pitch
+                this.rightArm.rotation.x = 0.35 + this.pitch * 0.75;
+                this.leftArm.rotation.x = 0.35 + this.pitch * 0.60 - legAngle * 0.2;
             } else {
-                this.leftLeg.rotation.x = 0;
-                this.rightLeg.rotation.x = 0;
-                this.leftArm.rotation.x = 0;
+                // Patrol stance: natural arm swing
+                this.rightArm.rotation.x = 0.35;
+                this.leftArm.rotation.x = isMoving ? -legAngle * 0.6 : 0;
             }
         }
     }
 
     moveWithCollision(dt) {
         // Dynamic obstacle avoidance probes (probes 2.4m ahead)
-        const forward = new THREE.Vector3(Math.sin(this.rotationY), 0, Math.cos(this.rotationY));
+        const sinY = Math.sin(this.rotationY);
+        const cosY = Math.cos(this.rotationY);
         const probeDist = 2.4;
-        const centerProbe = this.position.clone().add(forward.clone().multiplyScalar(probeDist));
 
-        if (this.map.checkCollision(centerProbe, this.radius, this.height)) {
+        _probeCenter.set(
+            this.position.x + sinY * probeDist,
+            this.position.y,
+            this.position.z + cosY * probeDist
+        );
+
+        if (this.map.checkCollision(_probeCenter, this.radius, this.height)) {
             // Obstacle ahead! Probe left (-40 deg) vs right (+40 deg)
-            const leftProbe = this.position.clone().add(
-                new THREE.Vector3(Math.sin(this.rotationY - 0.7), 0, Math.cos(this.rotationY - 0.7)).multiplyScalar(probeDist)
-            );
-            const rightProbe = this.position.clone().add(
-                new THREE.Vector3(Math.sin(this.rotationY + 0.7), 0, Math.cos(this.rotationY + 0.7)).multiplyScalar(probeDist)
-            );
+            const sinL = Math.sin(this.rotationY - 0.7);
+            const cosL = Math.cos(this.rotationY - 0.7);
+            const sinR = Math.sin(this.rotationY + 0.7);
+            const cosR = Math.cos(this.rotationY + 0.7);
 
-            const leftBlocked = this.map.checkCollision(leftProbe, this.radius, this.height);
-            const rightBlocked = this.map.checkCollision(rightProbe, this.radius, this.height);
+            _probeLeft.set(this.position.x + sinL * probeDist, this.position.y, this.position.z + cosL * probeDist);
+            _probeRight.set(this.position.x + sinR * probeDist, this.position.y, this.position.z + cosR * probeDist);
+
+            const leftBlocked = this.map.checkCollision(_probeLeft, this.radius, this.height);
+            const rightBlocked = this.map.checkCollision(_probeRight, this.radius, this.height);
 
             if (!leftBlocked && rightBlocked) {
                 this.targetRotationY -= 0.8;
@@ -654,15 +817,15 @@ class Bot {
         const stepX = this.velocity.x * dt;
         const stepZ = this.velocity.z * dt;
 
-        const nextX = new THREE.Vector3(this.position.x + stepX, this.position.y, this.position.z);
-        if (!this.map.checkCollision(nextX, this.radius, this.height)) {
+        _nextX.set(this.position.x + stepX, this.position.y, this.position.z);
+        if (!this.map.checkCollision(_nextX, this.radius, this.height)) {
             this.position.x += stepX;
         } else {
             this.velocity.x = 0;
         }
 
-        const nextZ = new THREE.Vector3(this.position.x, this.position.y, this.position.z + stepZ);
-        if (!this.map.checkCollision(nextZ, this.radius, this.height)) {
+        _nextZ.set(this.position.x, this.position.y, this.position.z + stepZ);
+        if (!this.map.checkCollision(_nextZ, this.radius, this.height)) {
             this.position.z += stepZ;
         } else {
             this.velocity.z = 0;
@@ -678,27 +841,27 @@ class Bot {
         const spreadX = (Math.random() - 0.5) * spreadRad;
         const spreadY = (Math.random() - 0.5) * spreadRad;
 
-        const aimDir = new THREE.Vector3().subVectors(playerEyePos, botEyePos).normalize();
-        aimDir.x += spreadX;
-        aimDir.y += spreadY;
-        aimDir.normalize();
+        _aimDir.subVectors(playerEyePos, botEyePos).normalize();
+        _aimDir.x += spreadX;
+        _aimDir.y += spreadY;
+        _aimDir.normalize();
 
         const maxShotDist = 70;
-        const tracerEnd = botEyePos.clone().add(aimDir.clone().multiplyScalar(maxShotDist));
+        _tracerEnd.copy(botEyePos).addScaledVector(_aimDir, maxShotDist);
 
         this.audio.playBotShoot(distToPlayer);
-        this.particles.createTracer(botEyePos, tracerEnd, 0xff9900);
+        this.particles.createTracer(botEyePos, _tracerEnd, 0xff9900);
 
-        const playerCenter = player.yawObject.position.clone();
-        playerCenter.y -= 0.85;
+        _playerCenter.copy(player.yawObject.position);
+        _playerCenter.y -= 0.85;
         const playerRadius = player.radius * 1.15;
 
-        const toPlayer = new THREE.Vector3().subVectors(playerCenter, botEyePos);
-        const projection = toPlayer.dot(aimDir);
+        _toPlayer.subVectors(_playerCenter, botEyePos);
+        const projection = _toPlayer.dot(_aimDir);
 
         if (projection > 0 && projection < distToPlayer + 2) {
-            const closestPoint = botEyePos.clone().add(aimDir.clone().multiplyScalar(projection));
-            const hitDistance = closestPoint.distanceTo(playerCenter);
+            _closestPoint.copy(botEyePos).addScaledVector(_aimDir, projection);
+            const hitDistance = _closestPoint.distanceTo(_playerCenter);
 
             if (hitDistance <= playerRadius) {
                 const baseDmg = 11 + Math.floor(Math.random() * 5);

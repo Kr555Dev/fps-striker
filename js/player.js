@@ -1,7 +1,6 @@
-/**
- * FPS Striker Player Movement Controller (Tuned for Crisp Tactical Feel)
- * Fixes: No slipperiness, balanced controllable speed, snappy realistic jump, air velocity clamping.
- */
+// Module-level pre-allocated scratch objects (Zero-GC invariant)
+const _p_wishDir = new THREE.Vector3();
+const _p_foot = new THREE.Vector3();
 
 class PlayerController {
     constructor(camera, scene, map, audio, particles) {
@@ -51,6 +50,8 @@ class PlayerController {
         // Stats & Invulnerability
         this.health = 100;
         this.maxHealth = 100;
+        this.shield = 0;
+        this.maxShield = 50;
         this.isDead = false;
         this.isInvulnerable = false;
         this.invulnerableTimer = 0;
@@ -59,6 +60,18 @@ class PlayerController {
         this.kills = 0;
         this.deaths = 0;
         this.streak = 0;
+
+        // Arcade Boosters & Power-Ups
+        this.boosters = {
+            speed: 0,
+            damage: 0,
+            shield: 0
+        };
+        this.boosterMaxDurations = {
+            speed: 10.0,
+            damage: 8.0,
+            shield: 15.0
+        };
 
         // Inputs
         this.keys = {
@@ -176,6 +189,10 @@ class PlayerController {
         this.yawObject.position.set(safeSpawn.x, safeSpawn.y + 1.7, safeSpawn.z);
         this.velocity.set(0, 0, 0);
         this.health = this.maxHealth;
+        this.shield = 0;
+        this.boosters.speed = 0;
+        this.boosters.damage = 0;
+        this.boosters.shield = 0;
         this.isDead = false;
         this.currentHeight = this.standingHeight;
         this.yawObject.rotation.y = Math.random() * Math.PI * 2;
@@ -187,20 +204,107 @@ class PlayerController {
 
         const shieldBadge = document.getElementById('shield-badge');
         if (shieldBadge) shieldBadge.style.display = 'block';
+
+        if (window.uiManager) {
+            if (typeof window.uiManager.clearAllBoosters === 'function') {
+                window.uiManager.clearAllBoosters();
+            }
+            window.uiManager.updateHealth(this.health, this.maxHealth, this.shield, this.maxShield);
+        }
+    }
+
+    hasSpeedBooster() {
+        return this.boosters.speed > 0;
+    }
+
+    hasDamageBooster() {
+        return this.boosters.damage > 0;
+    }
+
+    hasShieldBooster() {
+        return this.boosters.shield > 0 && this.shield > 0;
+    }
+
+    getSpeedMultiplier() {
+        return this.hasSpeedBooster() ? 1.4 : 1.0;
+    }
+
+    getSlideMultiplier() {
+        return this.hasSpeedBooster() ? 1.5 : 1.0;
+    }
+
+    applyBooster(type) {
+        if (type === 'speed') {
+            this.boosters.speed = this.boosterMaxDurations.speed;
+            if (this.audio && this.audio.playBoosterPickup) this.audio.playBoosterPickup('speed');
+            if (window.uiManager) {
+                window.uiManager.showBooster('speed', 'ADRENALINE BURST', '+40% SPEED & SLIDE', this.boosterMaxDurations.speed, '#00ffcc');
+            }
+        } else if (type === 'damage') {
+            this.boosters.damage = this.boosterMaxDurations.damage;
+            if (this.audio && this.audio.playBoosterPickup) this.audio.playBoosterPickup('damage');
+            if (window.uiManager) {
+                window.uiManager.showBooster('damage', 'HYPER DAMAGE', '2.5x WEAPON DAMAGE', this.boosterMaxDurations.damage, '#ff0055');
+            }
+        } else if (type === 'shield') {
+            this.shield = Math.min(this.maxShield, this.shield + 50);
+            this.boosters.shield = this.boosterMaxDurations.shield;
+            if (this.audio && this.audio.playBoosterPickup) this.audio.playBoosterPickup('shield');
+            if (window.uiManager) {
+                window.uiManager.showBooster('shield', 'NANO-SHIELD', '+50 ACTIVE ARMOR', this.boosterMaxDurations.shield, '#ffaa00');
+                window.uiManager.updateHealth(this.health, this.maxHealth, this.shield, this.maxShield);
+            }
+        }
     }
 
     takeDamage(amount, sourcePos) {
         if (!window.game || !window.game.isGameStarted) return;
         if (this.isDead || this.isInvulnerable) return;
-        this.health -= amount;
-        this.lastDamageTime = performance.now();
-        this.audio.playHurt();
-        this.particles.addTrauma(0.35);
 
-        const vig = document.getElementById('damage-vignette');
-        if (vig) {
-            vig.classList.add('hit');
-            setTimeout(() => vig.classList.remove('hit'), 180);
+        // Nano-Shield absorption: takes damage before health!
+        if (this.shield > 0) {
+            const absorbed = Math.min(this.shield, amount);
+            this.shield -= absorbed;
+            amount -= absorbed;
+
+            if (this.audio && this.audio.playShieldHit) {
+                this.audio.playShieldHit();
+            }
+            if (window.uiManager && window.uiManager.triggerShieldDeflect) {
+                window.uiManager.triggerShieldDeflect();
+            }
+
+            if (this.shield <= 0) {
+                this.shield = 0;
+                this.boosters.shield = 0;
+                if (this.audio && this.audio.playBoosterExpire) {
+                    this.audio.playBoosterExpire('shield');
+                }
+                if (window.uiManager) {
+                    window.uiManager.removeBooster('shield');
+                }
+            }
+
+            if (window.uiManager) {
+                window.uiManager.updateHealth(this.health, this.maxHealth, this.shield, this.maxShield);
+            }
+        }
+
+        if (amount > 0) {
+            this.health -= amount;
+            this.lastDamageTime = performance.now();
+            this.audio.playHurt();
+            this.particles.addTrauma(0.35);
+
+            const vig = document.getElementById('damage-vignette');
+            if (vig) {
+                vig.classList.add('hit');
+                setTimeout(() => vig.classList.remove('hit'), 180);
+            }
+
+            if (window.uiManager) {
+                window.uiManager.updateHealth(this.health, this.maxHealth, this.shield, this.maxShield);
+            }
         }
 
         if (window.uiManager && sourcePos) {
@@ -238,6 +342,36 @@ class PlayerController {
         if (!window.game || !window.game.isGameStarted) return;
         if (this.isDead) return;
 
+        // Arcade Booster Timers Update
+        if (this.boosters.speed > 0) {
+            this.boosters.speed -= dt;
+            if (this.boosters.speed <= 0) {
+                this.boosters.speed = 0;
+                if (this.audio && this.audio.playBoosterExpire) this.audio.playBoosterExpire('speed');
+                if (window.uiManager) window.uiManager.removeBooster('speed');
+            }
+        }
+        if (this.boosters.damage > 0) {
+            this.boosters.damage -= dt;
+            if (this.boosters.damage <= 0) {
+                this.boosters.damage = 0;
+                if (this.audio && this.audio.playBoosterExpire) this.audio.playBoosterExpire('damage');
+                if (window.uiManager) window.uiManager.removeBooster('damage');
+            }
+        }
+        if (this.boosters.shield > 0) {
+            this.boosters.shield -= dt;
+            if (this.boosters.shield <= 0 || this.shield <= 0) {
+                this.boosters.shield = 0;
+                this.shield = 0;
+                if (this.audio && this.audio.playBoosterExpire) this.audio.playBoosterExpire('shield');
+                if (window.uiManager) {
+                    window.uiManager.removeBooster('shield');
+                    window.uiManager.updateHealth(this.health, this.maxHealth, this.shield, this.maxShield);
+                }
+            }
+        }
+
         // Invulnerability timer
         if (this.isInvulnerable) {
             this.invulnerableTimer -= dt;
@@ -252,6 +386,7 @@ class PlayerController {
         const now = performance.now();
         if (now - this.lastDamageTime > 4000 && this.health < this.maxHealth) {
             this.health = Math.min(this.maxHealth, this.health + dt * 25);
+            if (window.uiManager) window.uiManager.updateHealth(this.health, this.maxHealth, this.shield, this.maxShield);
         }
 
         // Desired Direction
@@ -262,24 +397,25 @@ class PlayerController {
         const sin = Math.sin(yaw);
         const cos = Math.cos(yaw);
 
-        const wishDir = new THREE.Vector3(
+        _p_wishDir.set(
             -sin * forward + cos * right,
             0,
             -cos * forward - sin * right
         );
 
-        const isMoving = wishDir.lengthSq() > 0.001;
-        if (isMoving) wishDir.normalize();
+        const isMoving = _p_wishDir.lengthSq() > 0.001;
+        if (isMoving) _p_wishDir.normalize();
 
-        // Slide logic
+        // Slide logic (Enhanced with 1.5x Adrenaline Burst)
         const wantsSlide = this.keys.slide;
+        const currentSlideSpeed = this.slideSpeed * this.getSlideMultiplier();
         if (wantsSlide && this.onGround && isMoving && !this.isSliding) {
             this.isSliding = true;
             this.slideTimer = this.maxSlideDuration;
             this.audio.playSlide();
 
-            this.velocity.x = wishDir.x * this.slideSpeed;
-            this.velocity.z = wishDir.z * this.slideSpeed;
+            this.velocity.x = _p_wishDir.x * currentSlideSpeed;
+            this.velocity.z = _p_wishDir.z * currentSlideSpeed;
         }
 
         if (this.isSliding) {
@@ -293,7 +429,8 @@ class PlayerController {
         const targetHeight = this.isSliding ? this.crouchHeight : this.standingHeight;
         this.currentHeight += (targetHeight - this.currentHeight) * 16 * dt;
 
-        // Ground vs Air Movement
+        // Ground vs Air Movement (Enhanced with +40% Speed multiplier)
+        const speedMult = this.getSpeedMultiplier();
         if (this.onGround) {
             if (this.isSliding) {
                 // Low slide friction
@@ -301,10 +438,10 @@ class PlayerController {
                 this.velocity.z -= this.velocity.z * 3.5 * dt;
             } else {
                 if (isMoving) {
-                    const targetSpeed = this.baseSpeed;
+                    const targetSpeed = this.baseSpeed * speedMult;
                     const accel = 60.0;
-                    const targetVelX = wishDir.x * targetSpeed;
-                    const targetVelZ = wishDir.z * targetSpeed;
+                    const targetVelX = _p_wishDir.x * targetSpeed;
+                    const targetVelZ = _p_wishDir.z * targetSpeed;
 
                     this.velocity.x += (targetVelX - this.velocity.x) * Math.min(1.0, accel * dt);
                     this.velocity.z += (targetVelZ - this.velocity.z) * Math.min(1.0, accel * dt);
@@ -345,14 +482,15 @@ class PlayerController {
             // Air state: Directional air control without infinite acceleration
             if (isMoving) {
                 const airSteer = 14.0;
-                this.velocity.x += wishDir.x * airSteer * dt;
-                this.velocity.z += wishDir.z * airSteer * dt;
+                this.velocity.x += _p_wishDir.x * airSteer * dt;
+                this.velocity.z += _p_wishDir.z * airSteer * dt;
 
                 // Strict air speed cap
+                const maxAir = this.maxAirSpeed * speedMult;
                 const hSpeed = Math.sqrt(this.velocity.x * this.velocity.x + this.velocity.z * this.velocity.z);
-                if (hSpeed > this.maxAirSpeed) {
-                    this.velocity.x = (this.velocity.x / hSpeed) * this.maxAirSpeed;
-                    this.velocity.z = (this.velocity.z / hSpeed) * this.maxAirSpeed;
+                if (hSpeed > maxAir) {
+                    this.velocity.x = (this.velocity.x / hSpeed) * maxAir;
+                    this.velocity.z = (this.velocity.z / hSpeed) * maxAir;
                 }
             }
 
@@ -403,11 +541,12 @@ class PlayerController {
     }
 
     getFootPosition() {
-        return new THREE.Vector3(
+        _p_foot.set(
             this.yawObject.position.x,
             this.yawObject.position.y - this.currentHeight,
             this.yawObject.position.z
         );
+        return _p_foot;
     }
 
     resolveCollisions(dt) {
@@ -418,11 +557,13 @@ class PlayerController {
 
         foot.x += dx;
         if (this.checkHorizontalCollision(foot)) {
-            foot.y += 0.5;
+            // Attempt step-up for stairs/curbs (steps on ramp are 0.95m high)
+            const stepUpHeight = 1.05;
+            foot.y += stepUpHeight;
             if (!this.checkHorizontalCollision(foot)) {
-                this.yawObject.position.y += 0.5;
+                this.yawObject.position.y += stepUpHeight;
             } else {
-                foot.y -= 0.5;
+                foot.y -= stepUpHeight;
                 foot.x -= dx;
                 this.velocity.x = 0;
             }
@@ -430,11 +571,12 @@ class PlayerController {
 
         foot.z += dz;
         if (this.checkHorizontalCollision(foot)) {
-            foot.y += 0.5;
+            const stepUpHeight = 1.05;
+            foot.y += stepUpHeight;
             if (!this.checkHorizontalCollision(foot)) {
-                this.yawObject.position.y += 0.5;
+                this.yawObject.position.y += stepUpHeight;
             } else {
-                foot.y -= 0.5;
+                foot.y -= stepUpHeight;
                 foot.z -= dz;
                 this.velocity.z = 0;
             }
@@ -467,14 +609,22 @@ class PlayerController {
 
     checkHorizontalCollision(pos) {
         const r = this.radius;
-        const pMin = new THREE.Vector3(pos.x - r, pos.y + 0.1, pos.z - r);
-        const pMax = new THREE.Vector3(pos.x + r, pos.y + this.currentHeight - 0.1, pos.z + r);
+        const minX = pos.x - r;
+        const maxX = pos.x + r;
+        const minY = pos.y + 0.1;
+        const maxY = pos.y + this.currentHeight - 0.1;
+        const minZ = pos.z - r;
+        const maxZ = pos.z + r;
 
-        for (const c of this.map.colliders) {
-            if (c.isRamp || c.max.y <= 0.1) continue;
-            if (pMin.x < c.max.x && pMax.x > c.min.x &&
-                pMin.y < c.max.y && pMax.y > c.min.y &&
-                pMin.z < c.max.z && pMax.z > c.min.z) {
+        for (let i = 0; i < this.map.colliders.length; i++) {
+            const c = this.map.colliders[i];
+            if (c.max.y <= 0.1) continue;
+            // Ramps only allow walking on top if the player's feet are within step-up reach of the top surface
+            if (c.isRamp && pos.y >= c.max.y - 0.5) continue;
+
+            if (minX < c.max.x && maxX > c.min.x &&
+                minY < c.max.y && maxY > c.min.y &&
+                minZ < c.max.z && maxZ > c.min.z) {
                 return true;
             }
         }
@@ -488,7 +638,7 @@ class PlayerController {
         for (const c of this.map.colliders) {
             if (pos.x + r > c.min.x && pos.x - r < c.max.x &&
                 pos.z + r > c.min.z && pos.z - r < c.max.z) {
-                if (c.max.y <= pos.y + 0.5) {
+                if (c.max.y <= pos.y + 1.05) {
                     if (c.max.y > maxFloor) {
                         maxFloor = c.max.y;
                     }

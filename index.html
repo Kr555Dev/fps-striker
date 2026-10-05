@@ -137,9 +137,24 @@
                             <span id="hp-val">100</span>
                         </div>
                     </div>
+                    <!-- Nano-Shield Armor Status -->
+                    <div id="shield-row" style="display: none;">
+                        <div class="shield-segments">
+                            <div class="shield-segment s-seg-1 active"></div>
+                            <div class="shield-segment s-seg-2 active"></div>
+                            <div class="shield-segment s-seg-3 active"></div>
+                        </div>
+                        <div class="shield-num-group">
+                            <span class="shield-badge-icon">🛡️</span>
+                            <span id="shield-val">50</span>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
+
+        <!-- Active Arcade Booster Status Display (ADRENALINE BURST / HYPER DAMAGE / NANO-SHIELD) -->
+        <div id="active-boosters-hud"></div>
 
         <!-- Bottom Right: Weapon Loadout & Ammo Status -->
         <div id="bottom-right-hud">
@@ -147,31 +162,40 @@
             <div id="weapon-loadout">
                 <div class="loadout-slot active" data-slot="ar">
                     <span class="slot-name">Assault Rifle</span>
+                    <span class="slot-ammo" id="slot-ammo-ar">30/90</span>
                     <span class="slot-key">1</span>
                 </div>
                 <div class="loadout-slot" data-slot="revolver">
                     <span class="slot-name">Pistol</span>
+                    <span class="slot-ammo" id="slot-ammo-revolver">6/12</span>
                     <span class="slot-key">2</span>
                 </div>
                 <div class="loadout-slot" data-slot="sniper">
                     <span class="slot-name">Sniper</span>
+                    <span class="slot-ammo" id="slot-ammo-sniper">3/6</span>
                     <span class="slot-key">3</span>
                 </div>
                 <div class="loadout-slot" data-slot="smg">
                     <span class="slot-name">SMG</span>
+                    <span class="slot-ammo" id="slot-ammo-smg">34/136</span>
                     <span class="slot-key">4</span>
+                </div>
+                <div class="loadout-slot" data-slot="shotgun">
+                    <span class="slot-name">Shotgun</span>
+                    <span class="slot-ammo" id="slot-ammo-shotgun">2/14</span>
+                    <span class="slot-key">5</span>
                 </div>
             </div>
 
-            <!-- Massive Tactical Ammo Display -->
+            <!-- Massive Tactical Ammo Display: <Current Mag Ammo> / <Total Reserve Bullets> -->
             <div id="ammo-status">
                 <div class="ammo-numbers">
                     <span id="ammo-current">30</span>
-                    <span class="ammo-slash">|</span>
-                    <span id="ammo-max">30</span>
+                    <span class="ammo-slash">/</span>
+                    <span id="ammo-reserve">90</span>
                     <span class="ammo-pips">!!!</span>
                 </div>
-                <div id="ammo-reserve-label">RESERVE: <span id="ammo-reserve">120</span></div>
+                <div id="ammo-reserve-label">MAG CAP: <span id="ammo-max">30</span> &bull; TOTAL: <span id="ammo-total">120</span></div>
             </div>
         </div>
 
@@ -200,7 +224,7 @@
             <div id="btn-start-game" class="click-to-play-btn">
                 <span>CLICK TO PLAY</span>
             </div>
-            <p class="lobby-instructions">[WASD] Move &bull; [SPACE] Jump/Slide-Hop &bull; [SHIFT] Slide &bull; [1-4] Switch Weapons</p>
+            <p class="lobby-instructions">[WASD] Move &bull; [SPACE] Jump/Slide-Hop &bull; [SHIFT] Slide &bull; [1-5] Switch Weapons</p>
         </div>
 
         <!-- Bottom Customization Card -->
@@ -338,6 +362,8 @@
     <script src="js/player.js"></script>
     <script src="js/weapons.js"></script>
     <script src="js/bots.js"></script>
+    <script src="js/loot.js"></script>
+    <script src="js/boosters.js"></script>
     <script src="js/ui.js"></script>
     <script src="js/main.js"></script>
 </body>
