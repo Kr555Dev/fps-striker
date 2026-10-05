@@ -1,5 +1,5 @@
 /**
- * Krunker HUD, UI Manager, Scoreboard & Dopamine Feedback Loop
+ * FPS Striker HUD, UI Manager, Scoreboard & Dopamine Feedback Loop
  */
 
 class UIManager {

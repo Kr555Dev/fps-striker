@@ -76,7 +76,7 @@ class TextureGenerator {
         // Gold Magnum text engraving
         ctx.fillStyle = '#e5b838';
         ctx.font = 'bold 24px Rajdhani, sans-serif';
-        ctx.fillText('.357 MAGNUM // DETECTIVE', 50, 420);
+        ctx.fillText('.357 MAGNUM // ENFORCER', 50, 420);
 
         // Checkered grip pattern (bottom right)
         ctx.fillStyle = '#22160d';
@@ -117,7 +117,7 @@ class TextureGenerator {
         if (this.cache[key]) return this.cache[key];
         const { canvas, ctx } = this.createCanvas(512, 512);
 
-        // Base rich olive green (matches Krunker Undergrowth)
+        // Base rich olive green
         ctx.fillStyle = '#55782e';
         ctx.fillRect(0, 0, 512, 512);
 
@@ -187,7 +187,7 @@ class TextureGenerator {
         if (this.cache[key]) return this.cache[key];
         const { canvas, ctx } = this.createCanvas(512, 512);
 
-        // Dark slate stone base (matches Krunker ruins)
+        // Dark slate stone base
         ctx.fillStyle = '#2d3235';
         ctx.fillRect(0, 0, 512, 512);
 
@@ -514,7 +514,7 @@ class TextureGenerator {
     getWoodTexture() {
         if (this.cache.woodTexture) return this.cache.woodTexture;
         const { canvas, ctx } = this.createCanvas(512, 512);
-        // Rich warm cedar/wood (Krunker Triggerman handguard & stock)
+        // Rich warm cedar/wood (Commando handguard & stock)
         ctx.fillStyle = '#b57038';
         ctx.fillRect(0, 0, 512, 512);
 
@@ -597,10 +597,10 @@ class TextureGenerator {
         ctx.fillRect(40, 180, 432, 3);
         ctx.fillRect(40, 237, 432, 3);
 
-        // Golden Hunter Model Engraving
+        // Golden Marksman Model Engraving
         ctx.fillStyle = '#e5b838';
         ctx.font = 'bold 22px Rajdhani, sans-serif';
-        ctx.fillText('HUNTER .308 // PRECISION TACTICAL', 60, 220);
+        ctx.fillText('MARKSMAN .308 // PRECISION TACTICAL', 60, 220);
 
         // Grip stippling panel (bottom right)
         ctx.fillStyle = '#181b19';
@@ -649,7 +649,7 @@ class TextureGenerator {
         // Model Stamping
         ctx.fillStyle = '#00ffcc';
         ctx.font = 'bold 22px Rajdhani, sans-serif';
-        ctx.fillText('RUN N GUN // 9x19mm SUBMACHINE', 60, 200);
+        ctx.fillText('SKIRMISHER // 9x19mm SUBMACHINE', 60, 200);
 
         const tex = this.toTexture(canvas, 1, 1);
         this.cache.smgReceiver = tex;
@@ -691,7 +691,7 @@ class TextureGenerator {
         // Gold Magnum Crest
         ctx.fillStyle = '#ffcc00';
         ctx.font = 'bold 26px Rajdhani, sans-serif';
-        ctx.fillText('.357 MAGNUM // DETECTIVE', 60, 420);
+        ctx.fillText('.357 MAGNUM // ENFORCER', 60, 420);
 
         const tex = this.toTexture(canvas, 1, 1);
         this.cache.revolverSteel = tex;

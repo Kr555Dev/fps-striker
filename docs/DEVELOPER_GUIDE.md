@@ -1,4 +1,4 @@
-# 🛠️ Krunker Arena Developer & Modding Guide
+# 🛠️ FPS Striker Developer & Modding Guide
 
 > **Document Scope**: Practical guide for developers and AI agents on adding weapons, building new maps, configuring bot behavior, and running automated test suites.
 
@@ -33,7 +33,7 @@ WEAPONS['shotgun'] = {
 Always adhere to the continuous kinematic rule:
 ```javascript
 // Ensure contiguous limb connections:
-const rightArm = this.buildKrunkerArms('shotgun');
+const rightArm = this.buildStrikerArms('shotgun');
 weaponGroup.add(rightArm);
 ```
 

@@ -1,10 +1,10 @@
 /**
- * Krunker-Style FPS Game Entry Point
+ * FPS Striker // Fast-Paced 3D Voxel FPS Entry Point
  * High-performance Three.js setup: Zero shadow depth passes, fast linear lighting,
  * and adaptive resolution scaling to guarantee 60+ FPS under all conditions.
  */
 
-class KrunkerGame {
+class FPSStrikerGame {
     constructor() {
         this.container = document.getElementById('game-container');
         this.scene = null;
@@ -107,7 +107,7 @@ class KrunkerGame {
             this.player.pitchObject.rotation.x = -0.05;
         }
 
-        // Start Menu & Quick Match Click to Play (Krunker Lobby)
+        // Start Menu & Quick Match Click to Play (FPS Striker Lobby)
         const startMenu = document.getElementById('start-menu');
         const startGame = () => {
             this.isGameStarted = true;
@@ -311,6 +311,6 @@ class KrunkerGame {
 }
 
 window.addEventListener('DOMContentLoaded', () => {
-    window.game = new KrunkerGame();
+    window.game = new FPSStrikerGame();
     window.game.isGameStarted = false;
 });

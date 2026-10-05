@@ -1,11 +1,11 @@
-# ⚡ KRUNKER ARENA // 3D Fast-Paced Voxel FPS
+# ⚡ FPS STRIKER // 3D Fast-Paced Voxel FPS
 
 [![Three.js](https://img.shields.io/badge/Three.js-r128-black?style=flat&logo=three.js)](https://threejs.org/)
 [![Web Audio](https://img.shields.io/badge/Audio-Procedural_Web_Audio_API-blue?style=flat)](https://developer.mozilla.org/en-US/docs/Web/API/Web_Audio_API)
 [![Performance](https://img.shields.io/badge/Performance-100%2B_FPS_Zero--GC-brightgreen?style=flat)](docs/OPTIMIZATION_AND_ALGORITHMS.md)
 [![License](https://img.shields.io/badge/License-MIT-yellow?style=flat)](LICENSE)
 
-A high-performance, browser-based 3D first-person shooter inspired by **Krunker.io**. Built with **Three.js**, pure vanilla ES6 JavaScript, procedural Web Audio API synthesis, and a custom kinematic slide-hopping movement engine.
+A high-performance, browser-based 3D first-person shooter. Built with **Three.js**, pure vanilla ES6 JavaScript, procedural Web Audio API synthesis, and a custom kinematic slide-hopping movement engine.
 
 ---
 
@@ -93,7 +93,7 @@ npm start
 ## 📂 Project Structure
 
 ```
-krunker-fps/
+fps-striker/
 ├── index.html                   # Game shell & HUD overlay
 ├── css/
 │   └── style.css                # Tactical HUD, crosshairs & hit indicators

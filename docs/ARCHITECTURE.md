@@ -1,4 +1,4 @@
-# 🏛️ Krunker Arena System Architecture
+# 🏛️ FPS Striker System Architecture
 
 > **Document Scope**: High-level overview of the game engine's software architecture, component relationships, state machines, and lifecycle execution graph.
 
@@ -91,7 +91,7 @@ stateDiagram-v2
 | [`js/player.js`](../js/player.js) | Input capture (WASD/Mouse/PointerLock), slide-hopping, AABB collision, health. | Three.js, Weapons, Audio, UI |
 | [`js/weapons.js`](../js/weapons.js) | 4 weapon classes (AR, Sniper, SMG, Revolver), viewmodel generation, recoil spring. | Three.js, Audio, Particles, UI |
 | [`js/bots.js`](../js/bots.js) | Enemy bot spawning, waypoint patrol, frustum FOV cone calculation, strafe weaving. | Three.js, Map, Audio, Particles |
-| [`js/map.js`](../js/map.js) | Voxel arena layout (`Undergrowth`), cover boxes, ramp geometry, spawn anchors. | Three.js, Textures |
+| [`js/map.js`](../js/map.js) | Voxel arena layout (`Outpost Arena`), cover boxes, ramp geometry, spawn anchors. | Three.js, Textures |
 | [`js/textures.js`](../js/textures.js) | Procedural Canvas 2D texture generation (brick, wood, metal, skin), material cache. | Three.js |
 | [`js/particles.js`](../js/particles.js) | Bullet tracers, muzzle flash sprites, voxel blood particles, bullet impact decals. | Three.js |
 | [`js/audio.js`](../js/audio.js) | 100% procedural Web Audio API sound synthesis (gunshots, hits, reload, slide). | Web Audio API |

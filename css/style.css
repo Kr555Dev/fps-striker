@@ -174,7 +174,7 @@ canvas#renderCanvas {
     color: #ffffff;
 }
 
-/* --- Krunker Razor-Sharp Crosshair (+ with center gap) --- */
+/* --- FPS Striker Razor-Sharp Crosshair (+ with center gap) --- */
 #crosshair {
     position: absolute;
     top: 50%;
@@ -504,8 +504,8 @@ canvas#renderCanvas {
     letter-spacing: 1px;
 }
 
-/* --- Krunker Lobby Screen Overlay --- */
-.krunker-lobby-overlay {
+/* --- FPS Striker Lobby Screen Overlay --- */
+.striker-lobby-overlay {
     position: absolute;
     top: 0;
     left: 0;
@@ -552,7 +552,7 @@ canvas#renderCanvas {
     gap: 10px;
 }
 
-.krunker-logo-title {
+.striker-logo-title {
     font-family: 'Teko', sans-serif;
     font-size: 68px;
     line-height: 58px;
@@ -1197,7 +1197,7 @@ canvas#renderCanvas {
 }
 
 /* Match Over & Leaderboard Modal */
-#scoreboard-modal.krunker-modal-backdrop {
+#scoreboard-modal.striker-modal-backdrop {
     position: fixed;
     inset: 0;
     background: rgba(4, 7, 12, 0.78);
@@ -1210,7 +1210,7 @@ canvas#renderCanvas {
     cursor: default;
 }
 
-.krunker-modal-card {
+.striker-modal-card {
     position: relative;
     background: linear-gradient(180deg, #1a2029 0%, #0f131a 100%);
     border: 2px solid #2e3b4a;
@@ -1255,7 +1255,7 @@ canvas#renderCanvas {
     box-shadow: 0 0 16px rgba(255, 34, 85, 0.85);
 }
 
-.krunker-modal-header {
+.striker-modal-header {
     border-bottom: 1px solid rgba(255, 255, 255, 0.1);
     padding-bottom: 12px;
     margin-bottom: 16px;
@@ -1380,7 +1380,7 @@ tr.player-row {
 }
 
 /* Modal Action Footer */
-.krunker-modal-footer {
+.striker-modal-footer {
     display: flex;
     gap: 14px;
     justify-content: flex-end;

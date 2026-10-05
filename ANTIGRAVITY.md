@@ -1,6 +1,6 @@
 # ANTIGRAVITY.md // Antigravity Agent Configuration & Codebase Guide
 
-This document provides system context, architecture details, and coding conventions for Google Antigravity agents working on **Krunker Arena**.
+This document provides system context, architecture details, and coding conventions for Google Antigravity agents working on **FPS Striker**.
 
 ---
 

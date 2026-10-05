@@ -1,5 +1,5 @@
 /**
- * Krunker-Style Arena Map Generator ("Sandstorm / Burg" inspired)
+ * FPS Striker Arena Map Generator (Outpost Arena)
  * Unified clean bounding colliders without crevice traps, seamless cover props,
  * open-air navigation network, and robust penetration resolution.
  */
@@ -76,7 +76,7 @@ class GameMap {
     }
 
     buildArena() {
-        // 1. Arena Ground: Rich Voxel Olive Grass Base (Matches Krunker Undergrowth)
+        // 1. Arena Ground: Rich Voxel Olive Grass Base
         const floorGeo = new THREE.PlaneGeometry(160, 160);
         const floorMesh = new THREE.Mesh(floorGeo, this.materials.grassVoxel);
         floorMesh.rotation.x = -Math.PI / 2;
@@ -92,7 +92,7 @@ class GameMap {
             max: new THREE.Vector3(80, 0, 80)
         });
 
-        // 2. Winding Dirt Paths & Central Clay Courtyard (Matches Krunker Undergrowth)
+        // 2. Winding Dirt Paths & Central Clay Courtyard
         const addDirtSlab = (x, z, w, d) => {
             const slabGeo = new THREE.PlaneGeometry(w, d);
             const slab = new THREE.Mesh(slabGeo, this.materials.dirtPath);
@@ -134,7 +134,7 @@ class GameMap {
         this.addBox(78, wallH / 2, 0, wallThick, wallH, 160, this.materials.stoneBrickLong);
         this.addBox(78, wallH + 0.4, 0, wallThick + 0.6, 0.8, 162, this.materials.trimDark, false);
 
-        // 4. Central Plaza Ruined Fortress & Tiered Pillars (Matches Krunker Undergrowth monument)
+        // 4. Central Plaza Ruined Fortress & Tiered Pillars
         // Main dais
         this.addBox(0, 0.9, 0, 18, 1.8, 18, this.materials.stoneBrick);
         this.addBox(0, 1.9, 0, 19, 0.3, 19, this.materials.trimDark);

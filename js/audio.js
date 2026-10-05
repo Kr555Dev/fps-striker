@@ -1,5 +1,5 @@
 /**
- * Krunker-Style High-Dopamine Procedural Audio Engine
+ * FPS Striker High-Dopamine Procedural Audio Engine
  * 100% Web Audio API synthesized - Deep punch, multi-kill chord escalations,
  * tactile reload sounds, and crystal clear hit confirmations.
  */

@@ -1,5 +1,5 @@
 /**
- * Krunker-Style Player Movement Controller (Tuned for Crisp Tactical Feel)
+ * FPS Striker Player Movement Controller (Tuned for Crisp Tactical Feel)
  * Fixes: No slipperiness, balanced controllable speed, snappy realistic jump, air velocity clamping.
  */
 

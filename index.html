@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>KRUNKER ARENA // 3D Fast-Paced Voxel FPS</title>
+    <title>FPS STRIKER // 3D Fast-Paced Voxel FPS</title>
     <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
@@ -27,7 +27,7 @@
             </div>
             <div class="mode-map-row">
                 <span class="mode-label">Team Deathmatch</span>
-                <span class="map-label">on Undergrowth</span>
+                <span class="map-label">on Outpost</span>
             </div>
             <div class="team-score-row">
                 <span class="team-score alpha"><span class="team-square white">■</span> <span id="score-alpha">50</span></span>
@@ -69,7 +69,7 @@
             </div>
         </div>
 
-        <!-- Krunker Razor-Sharp Crosshair (+ with center gap) -->
+        <!-- FPS Striker Crosshair (+ with center gap) -->
         <div id="crosshair">
             <div class="crosshair-line ch-top"></div>
             <div class="crosshair-line ch-bottom"></div>
@@ -163,7 +163,7 @@
                 </div>
             </div>
 
-            <!-- Massive Krunker Ammo Display -->
+            <!-- Massive Tactical Ammo Display -->
             <div id="ammo-status">
                 <div class="ammo-numbers">
                     <span id="ammo-current">30</span>
@@ -179,8 +179,8 @@
         <div id="floating-damage-container"></div>
     </div>
 
-    <!-- Start / Deploy Menu Screen (Matches Krunker Lobby media_1791207615832.png) -->
-    <div id="start-menu" class="krunker-lobby-overlay">
+    <!-- Start / Deploy Menu Screen -->
+    <div id="start-menu" class="striker-lobby-overlay">
         <!-- Top Navigation Bar -->
         <div class="lobby-top-bar">
             <div class="top-nav-left">
@@ -196,7 +196,7 @@
 
         <!-- Central CLICK TO PLAY Banner -->
         <div class="lobby-center-prompt">
-            <h1 class="krunker-logo-title">KRUNKER</h1>
+            <h1 class="striker-logo-title">FPS STRIKER</h1>
             <div id="btn-start-game" class="click-to-play-btn">
                 <span>CLICK TO PLAY</span>
             </div>
@@ -206,12 +206,12 @@
         <!-- Bottom Customization Card -->
         <div class="lobby-bottom-bar">
             <div class="class-card">
-                <div class="class-class-title">Triggerman</div>
+                <div class="class-class-title">Commando</div>
                 <div class="class-gun-name">Assault Rifle</div>
                 <div class="customize-tag">Customize ✎</div>
             </div>
             <div class="server-info">
-                Now Playing: <b>Team Deathmatch on Undergrowth</b> &bull; Ping: <span style="color:#00ff88;">29ms</span>
+                Now Playing: <b>Team Deathmatch on Outpost</b> &bull; Ping: <span style="color:#00ff88;">29ms</span>
             </div>
         </div>
 
@@ -265,10 +265,10 @@
     </div>
 
     <!-- Match Over & Leaderboard Modal -->
-    <div id="scoreboard-modal" class="krunker-modal-backdrop" style="display: none;">
-        <div class="krunker-modal-card">
+    <div id="scoreboard-modal" class="striker-modal-backdrop" style="display: none;">
+        <div class="striker-modal-card">
             <button id="btn-close-scoreboard" class="modal-close-btn" title="Dismiss and start new match">✕</button>
-            <div class="krunker-modal-header">
+            <div class="striker-modal-header">
                 <div class="modal-title-group">
                     <span class="modal-tag">MATCH COMPLETED</span>
                     <h2 class="modal-title" id="match-outcome-title">TEAM ALPHA VICTORY</h2>
@@ -311,7 +311,7 @@
                 </table>
             </div>
 
-            <div class="krunker-modal-footer">
+            <div class="striker-modal-footer">
                 <button id="btn-restart-match" class="action-btn restart-btn">
                     <span>⚡ START NEW MATCH [SPACE]</span>
                 </button>

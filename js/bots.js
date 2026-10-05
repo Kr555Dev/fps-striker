@@ -1,5 +1,5 @@
 /**
- * Krunker-Style Voxel Bot AI System (Smart Tactical AI)
+ * FPS Striker Voxel Bot AI System (Smart Tactical AI)
  * Features:
  * - Smart wall avoidance (No rotating in place or getting trapped)
  * - Human-like aiming with smooth tracking and natural angular spread
@@ -105,7 +105,7 @@ class Bot {
         this.bodyMesh.position.y = 1.05;
         this.meshRoot.add(this.bodyMesh);
 
-        // White Shirt Collar & Red Tie (Krunker Iconic Mercenary Suit)
+        // White Shirt Collar & Red Tie (Tactical Mercenary Suit)
         const shirtCollar = setShadow(new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.32, 0.04), shirtMat));
         shirtCollar.position.set(0, 0.28, -0.21);
         this.bodyMesh.add(shirtCollar);
@@ -200,7 +200,7 @@ class Bot {
         const ctx = this.overheadCanvas.getContext('2d');
         ctx.clearRect(0, 0, 256, 64);
 
-        // Krunker overhead style: Clean text with black outline + lime-green HP bar
+        // Overhead style: Clean text with black outline + lime-green HP bar
         const displayName = this.name.startsWith('Bot') ? `Guest_${this.id + 1}` : this.name;
 
         ctx.font = 'bold 24px Rajdhani, sans-serif';

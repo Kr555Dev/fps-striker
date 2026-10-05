@@ -1,6 +1,6 @@
-# AGENTS.md // Multi-Agent Directives for Krunker Arena
+# AGENTS.md // Multi-Agent Directives for FPS Striker
 
-This file defines guidelines, roles, constraints, and architecture rules for autonomous AI coding agents collaborating on the Krunker Arena project.
+This file defines guidelines, roles, constraints, and architecture rules for autonomous AI coding agents collaborating on the FPS Striker project.
 
 ---
 
@@ -14,7 +14,7 @@ When deploying subagents or collaborating in teams, structure tasks across these
 
 2. **Kinematics & Player Physics Engineer**:
    - Focus: Slide-hopping physics, velocity integration, air strafing, friction coefficients, AABB swept collision detection, jump arcs.
-   - Constraint: Player movement must feel identical to authentic high-speed Krunker slide-hopping.
+   - Constraint: Player movement must feel identical to authentic high-speed tactical slide-hopping.
 
 3. **Bot AI & Combat Engineer**:
    - Focus: State machines (PATROL, ENGAGE, EVADE), frustum FOV cone calculation ($\le 35^\circ$), raycasted Line-of-Sight, strafe weaving, slide-hop dodging.

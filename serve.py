@@ -24,7 +24,7 @@ def run():
             with socketserver.TCPServer(("", port), Handler) as httpd:
                 url = f"http://localhost:{port}"
                 print("=" * 60)
-                print("  [*] KRUNKER ARENA // 3D FAST-PACED VOXEL FPS [*]")
+                print("  [*] FPS STRIKER // 3D FAST-PACED VOXEL FPS [*]")
                 print("=" * 60)
                 print(f"  Server running at: {url}")
                 print("  Press Ctrl+C to stop.")

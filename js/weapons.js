@@ -1,5 +1,5 @@
 /**
- * Krunker Realistic Tactical Weapons System & 3D Viewmodels
+ * FPS Striker Realistic Tactical Weapons System & 3D Viewmodels
  * Enhanced with:
  * - High-resolution generated textures for ALL 4 WEAPONS (AR, Sniper, SMG, Revolver)
  * - Mouse Wheel scroll weapon switching
@@ -23,7 +23,7 @@ class WeaponSystem {
             ar: {
                 id: 'ar',
                 name: 'Assault Rifle',
-                class: 'Triggerman',
+                class: 'Commando',
                 magSize: 30,
                 maxReserve: 120,
                 fireRate: 110,
@@ -41,7 +41,7 @@ class WeaponSystem {
             sniper: {
                 id: 'sniper',
                 name: 'Sniper Rifle',
-                class: 'Hunter',
+                class: 'Marksman',
                 magSize: 3,
                 maxReserve: 21,
                 fireRate: 850,
@@ -59,7 +59,7 @@ class WeaponSystem {
             smg: {
                 id: 'smg',
                 name: 'SMG',
-                class: 'Run N Gun',
+                class: 'Skirmisher',
                 magSize: 34,
                 maxReserve: 136,
                 fireRate: 72,
@@ -77,7 +77,7 @@ class WeaponSystem {
             revolver: {
                 id: 'revolver',
                 name: 'Revolver',
-                class: 'Detective',
+                class: 'Enforcer',
                 magSize: 6,
                 maxReserve: 36,
                 fireRate: 300,
@@ -185,7 +185,7 @@ class WeaponSystem {
     buildAllViewmodels() {
         const tex = window.textureGen;
 
-        // Stylized materials matching Krunker aesthetic
+        // Stylized materials matching tactical FPS aesthetic
         const akReceiverMat = new THREE.MeshLambertMaterial({
             map: tex.getAKReceiver ? tex.getAKReceiver() : null,
             color: 0x33373e
@@ -231,9 +231,9 @@ class WeaponSystem {
         const cuffMat = new THREE.MeshLambertMaterial({ color: 0xf0f0f5 });
         const skinMat = new THREE.MeshLambertMaterial({ color: 0xdfa07a });
 
-        // Helper: Build Krunker Stylized Voxel Arms
+        // Helper: Build Striker Stylized Voxel Arms
         // Redesigned as contiguous, unbroken volumetric limbs with zero visible gaps
-        const buildKrunkerArms = (type = 'ar') => {
+        const buildStrikerArms = (type = 'ar') => {
             const armRoot = new THREE.Group();
 
             // Builder for a solid, contiguous voxel limb (Forearm Sleeve -> Cuff -> Wrist -> Hand)
@@ -298,7 +298,7 @@ class WeaponSystem {
 
             // Weapon-specific limb configurations
             if (type === 'ar') {
-                // --- AR: Triggerman AK-47 ---
+                // --- AR: Commando AK-47 ---
                 // Right Arm: holds pistol grip
                 const rShoulder = new THREE.Vector3(0.14, -0.09, 0.20);
                 const rWrist = new THREE.Vector3(0.035, -0.055, 0.04);
@@ -344,7 +344,7 @@ class WeaponSystem {
                 armRoot.add(leftLimb.limbGroup);
 
             } else if (type === 'sniper') {
-                // --- Sniper: Hunter Bolt-Action Rifle ---
+                // --- Sniper: Marksman Bolt-Action Rifle ---
                 // Right Arm: holds angled rifle grip
                 const rShoulder = new THREE.Vector3(0.14, -0.09, 0.20);
                 const rWrist = new THREE.Vector3(0.035, -0.055, 0.06);
@@ -388,7 +388,7 @@ class WeaponSystem {
                 armRoot.add(leftLimb.limbGroup);
 
             } else if (type === 'smg') {
-                // --- SMG: Run N Gun Submachine Gun ---
+                // --- SMG: Skirmisher Submachine Gun ---
                 // Right Arm: holds pistol grip
                 const rShoulder = new THREE.Vector3(0.14, -0.09, 0.20);
                 const rWrist = new THREE.Vector3(0.035, -0.065, 0.05);
@@ -432,7 +432,7 @@ class WeaponSystem {
                 armRoot.add(leftLimb.limbGroup);
 
             } else if (type === 'revolver') {
-                // --- Revolver: Detective Magnum ---
+                // --- Revolver: Enforcer Magnum ---
                 // Both hands locked in a solid two-handed combat grip
                 // Right Arm: holds combat grip
                 const rShoulder = new THREE.Vector3(0.12, -0.09, 0.20);
@@ -480,7 +480,7 @@ class WeaponSystem {
             return armRoot;
         };
 
-        // 1. Assault Rifle (Triggerman AK-47) - Matches media_1791207600381.png
+        // 1. Assault Rifle (Commando AK-47)
         const arGroup = new THREE.Group();
 
         // Stamped steel receiver
@@ -546,12 +546,12 @@ class WeaponSystem {
         reflexLens.position.set(0, 0.072, -0.04);
         arGroup.add(reflexLens);
 
-        // Add Krunker Character Arms
-        arGroup.add(buildKrunkerArms('ar'));
+        // Add Striker Character Arms
+        arGroup.add(buildStrikerArms('ar'));
         this.viewmodelRoot.add(arGroup);
         this.weaponMeshes.ar = { root: arGroup, mag: arMag, muzzlePos: new THREE.Vector3(0, 0.012, -0.58) };
 
-        // 2. Sniper Rifle (Hunter) - High Fidelity Voxel Bolt-Action Overhaul
+        // 2. Sniper Rifle (Marksman) - High Fidelity Voxel Bolt-Action Overhaul
         const sniperGroup = new THREE.Group();
 
         // Tactical Composite / Dark Timber Chassis (Full Length Bedding)
@@ -658,7 +658,7 @@ class WeaponSystem {
         portR.position.set(0, 0.034, -0.89);
         sniperGroup.add(portR);
 
-        // High-Power Telescopic Hunter Scope
+        // High-Power Telescopic Tactical Scope
         const scopeRoot = new THREE.Group();
         scopeRoot.position.set(0, 0.108, 0.02);
 
@@ -742,11 +742,11 @@ class WeaponSystem {
         sniperGroup.add(bipodFootR);
 
         // Character Arms
-        sniperGroup.add(buildKrunkerArms('sniper'));
+        sniperGroup.add(buildStrikerArms('sniper'));
         this.viewmodelRoot.add(sniperGroup);
         this.weaponMeshes.sniper = { root: sniperGroup, mag: snMag, muzzlePos: new THREE.Vector3(0, 0.034, -0.92) };
 
-        // 3. SMG (Run N Gun) - MP5 / UMP-45 Inspired Tactical Submachine Gun Overhaul
+        // 3. SMG (Skirmisher) - MP5 / UMP-45 Inspired Tactical Submachine Gun Overhaul
         const smgGroup = new THREE.Group();
 
         // Stamped Steel Upper Receiver with Fire Selector Pictograms & Markings
@@ -884,11 +884,11 @@ class WeaponSystem {
         smgGroup.add(buttPad);
 
         // Character Arms (Holding foregrip + pistol grip)
-        smgGroup.add(buildKrunkerArms('smg'));
+        smgGroup.add(buildStrikerArms('smg'));
         this.viewmodelRoot.add(smgGroup);
         this.weaponMeshes.smg = { root: smgGroup, mag: smgMag, muzzlePos: new THREE.Vector3(0, 0.012, -0.50) };
 
-        // 4. Tactical Magnum Revolver (Detective) - Heavy Hand Cannon Overhaul
+        // 4. Tactical Magnum Revolver (Enforcer) - Heavy Hand Cannon Overhaul
         const revGroup = new THREE.Group();
 
         // Solid Magnum Steel Frame with Brushed Sheen & Top Strap
@@ -1022,7 +1022,7 @@ class WeaponSystem {
         revGroup.add(goldMedallion);
 
         // Two-Handed Stance Arms
-        revGroup.add(buildKrunkerArms('revolver'));
+        revGroup.add(buildStrikerArms('revolver'));
         this.viewmodelRoot.add(revGroup);
         this.weaponMeshes.revolver = {
             root: revGroup,
