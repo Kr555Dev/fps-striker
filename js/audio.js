@@ -1043,6 +1043,96 @@ class SoundEngine {
         }
     }
 
+    // Spatialized bot bullet impact reaction sound (organic flesh/armor thump + visceral grunt)
+    playBotHit(dist = 10, pan = 0, isHeadshot = false) {
+        if (!this.ctx || dist > 90) return;
+        this.resume();
+        const now = this.ctx.currentTime;
+
+        // Distance attenuation
+        const atten = Math.max(0.05, 1.0 / (1.0 + dist * 0.055));
+        const clampedPan = Math.max(-0.95, Math.min(0.95, pan));
+
+        // Spatial panner node (StereoPannerNode with fallback)
+        let panner = null;
+        if (typeof this.ctx.createStereoPanner === 'function') {
+            panner = this.ctx.createStereoPanner();
+            panner.pan.setValueAtTime(clampedPan, now);
+        }
+
+        // Atmospheric frequency absorption: distant grunts lose highs
+        const lpfFreq = Math.max(600, 3600 - dist * 32);
+        const filter = this.ctx.createBiquadFilter();
+        filter.type = 'lowpass';
+        filter.frequency.setValueAtTime(lpfFreq, now);
+
+        const gainNode = this.ctx.createGain();
+        gainNode.gain.setValueAtTime(0.70 * atten, now);
+
+        // Chain: [Sound] -> filter -> (panner ->) gainNode -> this.sfxGain
+        if (panner) {
+            filter.connect(panner);
+            panner.connect(gainNode);
+        } else {
+            filter.connect(gainNode);
+        }
+        gainNode.connect(this.sfxGain);
+
+        if (isHeadshot) {
+            // Metallic helmet crack + sharp skull snap
+            const crack = this.ctx.createOscillator();
+            crack.type = 'sawtooth';
+            crack.frequency.setValueAtTime(1400, now);
+            crack.frequency.exponentialRampToValueAtTime(320, now + 0.08);
+
+            const crackGain = this.ctx.createGain();
+            crackGain.gain.setValueAtTime(0.85, now);
+            crackGain.gain.exponentialRampToValueAtTime(0.001, now + 0.09);
+
+            crack.connect(crackGain);
+            crackGain.connect(filter);
+            crack.start(now);
+            crack.stop(now + 0.10);
+        } else {
+            // Tactile low-end kevlar/flesh thud (145Hz -> 42Hz)
+            const thud = this.ctx.createOscillator();
+            thud.type = 'triangle';
+            thud.frequency.setValueAtTime(145, now);
+            thud.frequency.exponentialRampToValueAtTime(42, now + 0.09);
+
+            const thudGain = this.ctx.createGain();
+            thudGain.gain.setValueAtTime(0.75, now);
+            thudGain.gain.exponentialRampToValueAtTime(0.001, now + 0.10);
+
+            thud.connect(thudGain);
+            thudGain.connect(filter);
+            thud.start(now);
+            thud.stop(now + 0.11);
+        }
+
+        // Visceral short vocalized grunt / air expulsion chirp (bandpass resonant body, 310Hz -> 220Hz)
+        const grunt = this.ctx.createOscillator();
+        grunt.type = 'sawtooth';
+        const gruntPitch = 280 + Math.random() * 80;
+        grunt.frequency.setValueAtTime(gruntPitch, now + 0.01);
+        grunt.frequency.exponentialRampToValueAtTime(gruntPitch * 0.72, now + 0.12);
+
+        const gruntFilter = this.ctx.createBiquadFilter();
+        gruntFilter.type = 'bandpass';
+        gruntFilter.frequency.setValueAtTime(420, now + 0.01);
+        gruntFilter.Q.setValueAtTime(2.2, now + 0.01);
+
+        const gruntGain = this.ctx.createGain();
+        gruntGain.gain.setValueAtTime(0.55, now + 0.01);
+        gruntGain.gain.exponentialRampToValueAtTime(0.001, now + 0.13);
+
+        grunt.connect(gruntFilter);
+        gruntFilter.connect(gruntGain);
+        gruntGain.connect(filter);
+        grunt.start(now + 0.01);
+        grunt.stop(now + 0.14);
+    }
+
     // Tactical Low Ammo Warning Cue (Last 25% of magazine)
     playLowAmmoWarning(remaining = 1, threshold = 5) {
         if (!this.ctx) return;

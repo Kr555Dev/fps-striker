@@ -31,6 +31,10 @@ const _surfaceNormal = new THREE.Vector3();
 const _unstuckDir = new THREE.Vector3();
 const _botBulletRay = new THREE.Raycaster();
 const _wallHitNormal = new THREE.Vector3();
+const _botCandDir = new THREE.Vector3();
+const _wallRepulse = new THREE.Vector3();
+const _camRight = new THREE.Vector3();
+const _toBot = new THREE.Vector3();
 
 // Combat Archetypes & Personality Matrix
 const BOT_ARCHETYPES = {
@@ -133,6 +137,79 @@ const BOT_ARCHETYPES = {
 
 const ARCHETYPE_KEYS = ['HUNTER', 'FLANKER', 'PATROLLER', 'CAMPER', 'SURVIVOR'];
 
+class CombatTokenDirector {
+    constructor() {
+        this.maxAttackTokens = 3;
+        this.maxFlankTokens = 1;
+        this.attackers = new Set();
+        this.flankers = new Set();
+        this.lastGlobalShotTime = 0;
+        this.minShotSpacing = 0.15; // 150ms shot cadence desynchronization
+        this.clutchTimer = 0;
+    }
+
+    update(dt, bots, player) {
+        if (player && player.health <= 25) {
+            this.clutchTimer = 2.0; // during clutch, allowed attackers drops to 2 for dramatic survivability
+        } else if (this.clutchTimer > 0) {
+            this.clutchTimer = Math.max(0, this.clutchTimer - dt);
+        }
+
+        const allowedAttackers = (this.clutchTimer > 0) ? 2 : this.maxAttackTokens;
+        const allowedFlankers = this.maxFlankTokens;
+
+        this.attackers.clear();
+        this.flankers.clear();
+
+        if (!bots || bots.length === 0) return;
+
+        const playerPos = player ? (player.yawObject ? player.yawObject.position : player.position) : null;
+        const candidates = [];
+
+        for (let i = 0; i < bots.length; i++) {
+            const b = bots[i];
+            if (b.isDead) continue;
+            // Gather candidate bots with LOS and target lock
+            const isEngaged = b.state === 'ENGAGE' || b.state === 'TAKE_COVER' || b.state === 'FIGHTING_RETREAT';
+            if (b.hasLockedTarget || (isEngaged && b.hasLos)) {
+                const dist = playerPos ? b.position.distanceTo(playerPos) : 0;
+                candidates.push({ bot: b, dist: dist });
+            }
+        }
+
+        // Sort by distance to player (closest gets priority)
+        candidates.sort((a, b) => a.dist - b.dist);
+
+        // Fill up to allowedAttackers into attackers set, and up to 1 into flankers set
+        for (let i = 0; i < candidates.length; i++) {
+            const b = candidates[i].bot;
+            if (this.attackers.size < allowedAttackers) {
+                this.attackers.add(b);
+            } else if (this.flankers.size < allowedFlankers) {
+                this.flankers.add(b);
+            }
+        }
+    }
+
+    hasAttackToken(bot) {
+        return this.attackers.has(bot);
+    }
+
+    hasFlankToken(bot) {
+        return this.flankers.has(bot);
+    }
+
+    canBotShoot(bot, now) {
+        return this.attackers.has(bot) && (now - this.lastGlobalShotTime >= this.minShotSpacing);
+    }
+
+    notifyShot(now) {
+        this.lastGlobalShotTime = now;
+    }
+}
+
+window.CombatTokenDirector = CombatTokenDirector;
+
 class Bot {
     constructor(id, name, colorHex, scene, map, audio, particles, config = {}) {
         this.id = id;
@@ -178,6 +255,12 @@ class Bot {
         this.spreadBase = cfg.spreadBase;
         this.targetMemory = cfg.targetMemory;
         this.damageMultiplier = 0.70; // 30% damage reduction across all archetypes
+        this.manager = config.manager || null;
+        this.spawnGraceTimer = 0;
+        this.hasCoverObjective = false;
+        this.isCornerHolding = false;
+        this.cornerHoldTimer = 0;
+        this.hasLos = false;
 
         // Kinematics
         this.position = new THREE.Vector3();
@@ -423,11 +506,41 @@ class Bot {
         }
     }
 
-    spawn() {
-        const spawns = this.map.spawnPoints;
-        // Distribute bots evenly across all map quadrants at spawn to avoid clustering
-        const sp = spawns[this.id % spawns.length];
-        this.position.set(sp.x, sp.y, sp.z);
+    spawn(isRespawn = false) {
+        const player = window.playerController || (window.game ? window.game.player : null);
+        if (isRespawn && this.map && typeof this.map.getSmartRespawnPoint === 'function' && player && player.yawObject) {
+            const playerPos = player.yawObject.position;
+            const pyaw = player.yawObject.rotation.y;
+            const playerFacingDir = _botCandDir.set(-Math.sin(pyaw), 0, -Math.cos(pyaw)).normalize();
+            if (player.camera) {
+                player.camera.getWorldDirection(playerFacingDir);
+                playerFacingDir.y = 0;
+                playerFacingDir.normalize();
+            }
+            const activeBots = (this.manager && typeof this.manager.getActiveBotPositions === 'function')
+                ? this.manager.getActiveBotPositions()
+                : (window.botManager && typeof window.botManager.getActiveBotPositions === 'function' ? window.botManager.getActiveBotPositions() : []);
+
+            const sp = this.map.getSmartRespawnPoint(playerPos, playerFacingDir, activeBots);
+            if (sp) {
+                this.position.set(sp.x, sp.y, sp.z);
+            } else {
+                const spawns = this.map.spawnPoints;
+                const fallbackSp = spawns[this.id % spawns.length];
+                this.position.set(fallbackSp.x, fallbackSp.y, fallbackSp.z);
+            }
+            this.spawnGraceTimer = 1.0; // 1s orientation grace period
+        } else {
+            const spawns = this.map.spawnPoints;
+            // Distribute bots evenly across all map quadrants at spawn to avoid clustering
+            const sp = spawns[this.id % spawns.length];
+            this.position.set(sp.x, sp.y, sp.z);
+            this.spawnGraceTimer = 0;
+        }
+
+        this.hasCoverObjective = false;
+        this.isCornerHolding = false;
+        this.cornerHoldTimer = 0;
 
         this.map.resolvePenetration(this.position, this.radius, this.height);
 
@@ -596,8 +709,21 @@ class Bot {
 
     takeDamage(damage, attacker, isHeadshot, weaponName) {
         if (this.isDead) return;
+        this.spawnGraceTimer = 0; // Clear orientation grace on damage
         this.health -= damage;
         this.renderOverheadCanvas();
+
+        // Spatialized bot impact reaction audio
+        if (this.audio && typeof this.audio.playBotHit === 'function') {
+            const player = window.playerController;
+            if (player && player.yawObject) {
+                const distToPlayer = this.position.distanceTo(player.yawObject.position);
+                _camRight.set(1, 0, 0).applyQuaternion(player.yawObject.quaternion);
+                _toBot.subVectors(this.position, player.yawObject.position).normalize();
+                const pan = Math.max(-0.95, Math.min(0.95, _camRight.dot(_toBot)));
+                this.audio.playBotHit(distToPlayer, pan, !!isHeadshot);
+            }
+        }
 
         this.headMesh.material.color.setHex(0xff0044);
         setTimeout(() => {
@@ -611,7 +737,7 @@ class Bot {
             if (isGameStarted) {
                 const attackerPos = attacker ? (attacker.yawObject ? attacker.yawObject.position : (attacker.position || null)) : null;
                 const wasInVision = attackerPos ? this.isPlayerInVisionCone(attackerPos) : true;
-                const shouldRetreat = this.health < this.retreatThreshold;
+                const shouldRetreat = (this.archetype !== 'HUNTER') && (this.health < this.retreatThreshold);
 
                 if (this.state === 'AMBUSH') {
                     // Camper flushed out of ambush: reset crouch and react
@@ -621,7 +747,22 @@ class Bot {
 
                 if (wasInVision) {
                     // Attacker is in front / within vision cone (110°): instant combat engagement or cover retreat
-                    this.state = shouldRetreat ? 'TAKE_COVER' : 'ENGAGE';
+                    if (shouldRetreat) {
+                        const coverPoint = (this.map && attackerPos && typeof this.map.findNearestCoverPoint === 'function')
+                            ? this.map.findNearestCoverPoint(this.position, attackerPos, 16)
+                            : null;
+                        if (coverPoint) {
+                            this.state = 'TAKE_COVER';
+                            this.targetWaypoint.copy(coverPoint);
+                            this.hasCoverObjective = true;
+                        } else {
+                            this.state = 'FIGHTING_RETREAT';
+                            this.hasCoverObjective = false;
+                        }
+                    } else {
+                        this.state = 'ENGAGE';
+                        this.hasCoverObjective = false;
+                    }
                     this.hasLockedTarget = true;
                     this.targetLockTimer = 0.2;
                     this.lostTargetTimer = 0;
@@ -629,9 +770,6 @@ class Bot {
                         const dx = attackerPos.x - this.position.x;
                         const dz = attackerPos.z - this.position.z;
                         this.targetRotationY = Math.atan2(dx, dz);
-                        if (shouldRetreat) {
-                            this.pickRetreatWaypoint(attackerPos);
-                        }
                     }
                 } else {
                     // Backstab / Flank Alert (Requirement 2): Attacked from behind or out of FOV!
@@ -705,9 +843,13 @@ class Bot {
         if (this.isDead) {
             this.respawnTimer -= dt;
             if (this.respawnTimer <= 0) {
-                this.spawn();
+                this.spawn(true);
             }
             return;
+        }
+
+        if (this.spawnGraceTimer > 0) {
+            this.spawnGraceTimer -= dt;
         }
 
         const playerPos = player ? player.yawObject.position : null;
@@ -725,6 +867,7 @@ class Bot {
         const isGameStarted = !!(window.game && window.game.isGameStarted);
         const inVisionCone = playerPos ? this.isPlayerInVisionCone(playerPos) : false;
         const hasLos = isGameStarted && player && !player.isDead && (distToPlayer < 42) && playerPos && this.map.hasLineOfSight(_botEyePos, _playerEyePos);
+        this.hasLos = hasLos;
 
         // Update target memory for Hunter & Flanker tracking
         if (hasLos && playerPos) {
@@ -739,12 +882,24 @@ class Bot {
                 // Reaction delay elapsed! Bot now turns towards the incoming damage angle
                 this.isAlerted = false;
                 this.targetRotationY = this.alertAngle;
-                const shouldRetreat = this.health < this.retreatThreshold;
-                this.state = shouldRetreat ? 'TAKE_COVER' : 'ENGAGE';
-                this.targetLockTimer = 0.15;
-                if (shouldRetreat && playerPos) {
-                    this.pickRetreatWaypoint(playerPos);
+                const shouldRetreat = (this.archetype !== 'HUNTER') && (this.health < this.retreatThreshold);
+                if (shouldRetreat) {
+                    const coverPoint = (this.map && playerPos && typeof this.map.findNearestCoverPoint === 'function')
+                        ? this.map.findNearestCoverPoint(this.position, playerPos, 16)
+                        : null;
+                    if (coverPoint) {
+                        this.state = 'TAKE_COVER';
+                        this.targetWaypoint.copy(coverPoint);
+                        this.hasCoverObjective = true;
+                    } else {
+                        this.state = 'FIGHTING_RETREAT';
+                        this.hasCoverObjective = false;
+                    }
+                } else {
+                    this.state = 'ENGAGE';
+                    this.hasCoverObjective = false;
                 }
+                this.targetLockTimer = 0.15;
             }
         }
 
@@ -757,6 +912,12 @@ class Bot {
             this.isAlerted = false;
             this.ambushTimer = 0;
             if (this.bodyMesh) this.bodyMesh.position.y = 1.05;
+        } else if (this.spawnGraceTimer > 0) {
+            // Orientation Grace period: bot patrols and does NOT lock on or aggro player until grace ends (unless attacked)
+            this.hasLockedTarget = false;
+            this.targetLockTimer = 0;
+            this.state = 'PATROL';
+            this.isAlerted = false;
         } else if (this.isAlerted) {
             // Under delayed alert; maintaining evasive maneuvers until reaction timer fires
         } else if (this.state === 'PATROL' || this.state === 'AMBUSH') {
@@ -771,30 +932,56 @@ class Bot {
 
             // In PATROL or AMBUSH, bot ONLY spots/aggros player if player is within 110° vision cone AND has LOS!
             if (inVisionCone && hasLos) {
-                const shouldRetreat = this.health < this.retreatThreshold;
-                this.state = shouldRetreat ? 'TAKE_COVER' : 'ENGAGE';
-                if (this.bodyMesh) this.bodyMesh.position.y = 1.05;
+                const shouldRetreat = (this.archetype !== 'HUNTER') && (this.health < this.retreatThreshold);
+                if (shouldRetreat) {
+                    const coverPoint = (this.map && playerPos && typeof this.map.findNearestCoverPoint === 'function')
+                        ? this.map.findNearestCoverPoint(this.position, playerPos, 16)
+                        : null;
+                    if (coverPoint) {
+                        this.state = 'TAKE_COVER';
+                        this.targetWaypoint.copy(coverPoint);
+                        this.hasCoverObjective = true;
+                    } else {
+                        this.state = 'FIGHTING_RETREAT';
+                        this.hasCoverObjective = false;
+                    }
+                } else {
+                    this.state = 'ENGAGE';
+                    this.hasCoverObjective = false;
+                }
+                if (this.bodyMesh && !this.isCornerHolding) this.bodyMesh.position.y = 1.05;
                 this.targetLockTimer += dt;
                 if (this.targetLockTimer >= this.reactionTime) {
                     this.hasLockedTarget = true;
                 }
                 this.lostTargetTimer = 0;
-                if (shouldRetreat && playerPos) {
-                    this.pickRetreatWaypoint(playerPos);
-                }
             } else {
                 this.hasLockedTarget = false;
                 this.targetLockTimer = 0;
             }
         } else {
-            // In ENGAGE or TAKE_COVER: maintain active combat target while LOS exists
+            // In ENGAGE, TAKE_COVER, or FIGHTING_RETREAT: maintain active combat target while LOS exists
             if (hasLos) {
-                const shouldRetreat = this.health < this.retreatThreshold;
-                if (shouldRetreat && this.state !== 'TAKE_COVER' && playerPos) {
-                    this.state = 'TAKE_COVER';
-                    this.pickRetreatWaypoint(playerPos);
+                const shouldRetreat = (this.archetype !== 'HUNTER') && (this.health < this.retreatThreshold);
+                if (shouldRetreat) {
+                    if (this.state !== 'TAKE_COVER' && this.state !== 'FIGHTING_RETREAT') {
+                        const coverPoint = (this.map && playerPos && typeof this.map.findNearestCoverPoint === 'function')
+                            ? this.map.findNearestCoverPoint(this.position, playerPos, 16)
+                            : null;
+                        if (coverPoint) {
+                            this.state = 'TAKE_COVER';
+                            this.targetWaypoint.copy(coverPoint);
+                            this.hasCoverObjective = true;
+                        } else {
+                            this.state = 'FIGHTING_RETREAT';
+                            this.hasCoverObjective = false;
+                        }
+                    }
                 } else if (!shouldRetreat && this.state !== 'ENGAGE') {
                     this.state = 'ENGAGE';
+                    this.hasCoverObjective = false;
+                    this.isCornerHolding = false;
+                    if (this.bodyMesh) this.bodyMesh.position.y = 1.05;
                 }
 
                 if (!this.hasLockedTarget) {
@@ -829,6 +1016,9 @@ class Bot {
                     this.targetLockTimer = 0;
                     this.hasLastKnownPos = false;
                     this.state = 'PATROL';
+                    this.isCornerHolding = false;
+                    this.hasCoverObjective = false;
+                    if (this.bodyMesh) this.bodyMesh.position.y = 1.05;
                     this.pickNextWaypoint();
                 }
             }
@@ -837,13 +1027,17 @@ class Bot {
         // Requirement 5: Slide-Hop Momentum Burst System
         this.slideHopCooldown -= dt;
         if (this.slideHopCooldown <= 0 && !this.isDead) {
-            const hopChance = (this.state === 'ENGAGE' || this.state === 'TAKE_COVER') ? this.hopChanceEngage : 0.30;
+            const hopChance = (this.state === 'ENGAGE' || this.state === 'TAKE_COVER' || this.state === 'FIGHTING_RETREAT') ? this.hopChanceEngage : 0.30;
             if (Math.random() < hopChance) {
                 this.isSlideHopping = true;
                 this.slideHopTimer = 0.55;
                 this.hopProgress = 0;
             }
-            this.slideHopCooldown = (this.state === 'ENGAGE' ? this.hopCooldownBase : this.hopCooldownBase * 1.5) + Math.random() * 2.0;
+            let nextHopCooldown = ((this.state === 'ENGAGE' || this.state === 'FIGHTING_RETREAT') ? this.hopCooldownBase : this.hopCooldownBase * 1.5) + Math.random() * 2.0;
+            if (this.health < 50) {
+                nextHopCooldown *= 1.4; // Slide-hop cooldown increased by 40% (fewer hops)
+            }
+            this.slideHopCooldown = nextHopCooldown;
         }
 
         let speedMultiplier = 1.0;
@@ -851,7 +1045,7 @@ class Bot {
         if (this.isSlideHopping) {
             this.slideHopTimer -= dt;
             this.hopProgress = Math.max(0, 1.0 - (this.slideHopTimer / 0.55));
-            speedMultiplier = (this.archetype === 'SURVIVOR' && this.state === 'TAKE_COVER') ? 1.30 : 1.25;
+            speedMultiplier = (this.archetype === 'SURVIVOR' && (this.state === 'TAKE_COVER' || this.state === 'FIGHTING_RETREAT')) ? 1.30 : 1.25;
             hopYOffset = Math.sin(this.hopProgress * Math.PI) * 0.35;
             if (this.slideHopTimer <= 0) {
                 this.isSlideHopping = false;
@@ -894,9 +1088,22 @@ class Bot {
                 }
 
                 // Sudden stutter-step to throw off player tracking
-                if (Math.random() < 0.28) {
+                if (this.health >= 50 && Math.random() < 0.28) {
                     this.stutterTimer = 0.15 + Math.random() * 0.15;
                 }
+
+                // Movement easing (< 50% HP for all bots)
+                if (this.health < 50) {
+                    this.strafeSpeed = 3.8 + Math.random() * 0.8; // ~22% reduction
+                    if (this.strafeTimer < 0.85) {
+                        this.strafeTimer = 0.85 + Math.random() * 0.35; // longer readable strafe arcs
+                    }
+                    this.stutterTimer = 0; // Stutter-step disabled when injured
+                }
+            }
+
+            if (this.health < 50) {
+                this.stutterTimer = 0;
             }
 
             let moveMultiplier = 1.0;
@@ -910,11 +1117,6 @@ class Bot {
             } else {
                 this.tacticalBurstSpeed = 0;
             }
-
-            // Tactical circle-strafing with lateral bursts
-            const totalStrafeSpeed = (this.strafeSpeed + this.tacticalBurstSpeed) * speedMultiplier * moveMultiplier;
-            const sideX = Math.cos(this.targetRotationY) * this.strafeDir * totalStrafeSpeed;
-            const sideZ = -Math.sin(this.targetRotationY) * this.strafeDir * totalStrafeSpeed;
 
             // Spacing management tailored per archetype
             const engageDist = (hasLos || !this.hasLastKnownPos) ? distToPlayer : this.position.distanceTo(this.lastKnownPlayerPos);
@@ -957,7 +1159,22 @@ class Bot {
             if (!hasLos && this.archetype !== 'HUNTER') {
                 forwardPush *= 0.25; // Don't bulldoze blindly into cover when player broke LOS
             }
+
+            const director = this.manager ? this.manager.combatDirector : (window.botManager ? window.botManager.combatDirector : null);
+            const hasAttackToken = director ? director.hasAttackToken(this) : true;
+            let strafeBias = 1.0;
+            if (!hasAttackToken) {
+                // If bot does not hold attack token, prioritize lateral positioning
+                forwardPush *= 0.4;
+                strafeBias = 1.2;
+            }
+
             forwardPush *= speedMultiplier * moveMultiplier;
+
+            // Tactical circle-strafing with lateral bursts
+            const totalStrafeSpeed = (this.strafeSpeed + this.tacticalBurstSpeed) * speedMultiplier * moveMultiplier * strafeBias;
+            const sideX = Math.cos(this.targetRotationY) * this.strafeDir * totalStrafeSpeed;
+            const sideZ = -Math.sin(this.targetRotationY) * this.strafeDir * totalStrafeSpeed;
 
             if (this.unstuckDuration > 0) {
                 this.unstuckDuration -= dt;
@@ -967,16 +1184,19 @@ class Bot {
                 this.velocity.z = sideZ + Math.cos(this.targetRotationY) * forwardPush;
             }
 
-            // Requirement 3: Enforce forward FOV Frustum cone AND LOS before firing!
+            // Requirement 3 & 9: Enforce CombatTokenDirector, forward FOV Frustum cone AND LOS before firing!
             if (this.hasLockedTarget && hasLos) {
                 this.attackCooldown -= dt;
                 if (this.attackCooldown <= 0) {
-                    if (this.isPlayerInFrustumCone(playerPos) && this.map.hasLineOfSight(_botEyePos, _playerEyePos)) {
+                    const now = (typeof performance !== 'undefined' && performance.now) ? performance.now() * 0.001 : Date.now() * 0.001;
+                    const canShoot = director ? director.canBotShoot(this, now) : true;
+                    if (canShoot && this.isPlayerInFrustumCone(playerPos) && this.map.hasLineOfSight(_botEyePos, _playerEyePos)) {
+                        if (director) director.notifyShot(now);
                         this.attackCooldown = this.fireInterval + (Math.random() - 0.5) * 0.12;
                         this.fireAtPlayer(player, _botEyePos, _playerEyePos, distToPlayer);
                     } else {
-                        // Hold fire until rotated into forward frustum cone
-                        this.attackCooldown = 0.10;
+                        // Hold fire until token available, rotated into forward frustum cone, and LOS verified
+                        this.attackCooldown = 0.08;
                     }
                 }
             } else if (!hasLos) {
@@ -985,46 +1205,155 @@ class Bot {
             }
 
         } else if (this.state === 'TAKE_COVER') {
-            // Low health: Back off towards cover waypoint away from player with evasive zig-zag
-            if (!this.targetWaypoint || this.position.distanceTo(this.targetWaypoint) < 3.0) {
-                if (playerPos) {
-                    this.pickRetreatWaypoint(playerPos);
-                } else {
+            if (this.isCornerHolding) {
+                this.cornerHoldTimer -= dt;
+                this.velocity.set(0, 0, 0);
+                if (this.bodyMesh) this.bodyMesh.position.y = 0.90; // crouch
+
+                // Pre-aim corner where player was last seen
+                if (this.hasLastKnownPos) {
+                    const dx = this.lastKnownPlayerPos.x - this.position.x;
+                    const dz = this.lastKnownPlayerPos.z - this.position.z;
+                    this.targetRotationY = Math.atan2(dx, dz);
+                }
+
+                // If player peeks into LOS: trigger ambush return fire!
+                if (hasLos && isGameStarted && playerPos) {
+                    this.attackCooldown -= dt;
+                    if (this.attackCooldown <= 0) {
+                        const director = this.manager ? this.manager.combatDirector : (window.botManager ? window.botManager.combatDirector : null);
+                        const now = (typeof performance !== 'undefined' && performance.now) ? performance.now() * 0.001 : Date.now() * 0.001;
+                        const canShoot = director ? director.canBotShoot(this, now) : true;
+                        if (canShoot && this.isPlayerInFrustumCone(playerPos) && this.map.hasLineOfSight(_botEyePos, _playerEyePos)) {
+                            if (director) director.notifyShot(now);
+                            this.attackCooldown = this.fireInterval + (Math.random() - 0.5) * 0.10;
+                            this.fireAtPlayer(player, _botEyePos, _playerEyePos, distToPlayer);
+                        } else {
+                            this.attackCooldown = 0.08;
+                        }
+                    }
+                }
+
+                if (this.cornerHoldTimer <= 0) {
+                    this.isCornerHolding = false;
+                    this.hasCoverObjective = false;
+                    this.state = 'PATROL';
+                    if (this.bodyMesh) this.bodyMesh.position.y = 1.05;
                     this.pickNextWaypoint();
                 }
+            } else {
+                const distToCover = this.targetWaypoint ? this.position.distanceTo(this.targetWaypoint) : 999;
+                if (distToCover < 2.0 && !hasLos) {
+                    this.isCornerHolding = true;
+                    this.cornerHoldTimer = 3.0;
+                    this.velocity.set(0, 0, 0);
+                    if (this.bodyMesh) this.bodyMesh.position.y = 0.90;
+                } else {
+                    if (!this.targetWaypoint || (distToCover < 2.0 && hasLos)) {
+                        const coverPoint = (this.map && playerPos && typeof this.map.findNearestCoverPoint === 'function')
+                            ? this.map.findNearestCoverPoint(this.position, playerPos, 16)
+                            : null;
+                        if (coverPoint) {
+                            this.targetWaypoint.copy(coverPoint);
+                            this.hasCoverObjective = true;
+                        } else {
+                            this.state = 'FIGHTING_RETREAT';
+                            this.hasCoverObjective = false;
+                        }
+                    }
+
+                    if (this.state === 'TAKE_COVER') {
+                        const dx = this.targetWaypoint.x - this.position.x;
+                        const dz = this.targetWaypoint.z - this.position.z;
+                        this.targetRotationY = Math.atan2(dx, dz);
+
+                        const forwardX = Math.sin(this.targetRotationY);
+                        const forwardZ = Math.cos(this.targetRotationY);
+                        const perpX = Math.cos(this.targetRotationY);
+                        const perpZ = -Math.sin(this.targetRotationY);
+
+                        // Evasive sprint zig-zag
+                        const evadeMultiplier = (this.archetype === 'SURVIVOR') ? 3.4 : 2.8;
+                        const evadeWeave = Math.sin(this.walkCycle * 1.4) * evadeMultiplier;
+                        const retreatSpeed = this.speed * 1.15 * speedMultiplier;
+
+                        if (this.unstuckDuration > 0) {
+                            this.unstuckDuration -= dt;
+                            this.velocity.copy(this.unstuckVelocity);
+                        } else {
+                            this.velocity.x = forwardX * retreatSpeed + perpX * evadeWeave;
+                            this.velocity.z = forwardZ * retreatSpeed + perpZ * evadeWeave;
+                        }
+
+                        // Occasional defensive return fire (strictly within FOV frustum and with LOS)
+                        if (this.hasLockedTarget && isGameStarted && playerPos && hasLos && Math.random() < 0.25) {
+                            this.attackCooldown -= dt;
+                            if (this.attackCooldown <= 0) {
+                                const director = this.manager ? this.manager.combatDirector : (window.botManager ? window.botManager.combatDirector : null);
+                                const now = (typeof performance !== 'undefined' && performance.now) ? performance.now() * 0.001 : Date.now() * 0.001;
+                                const canShoot = director ? director.canBotShoot(this, now) : true;
+                                if (canShoot && this.isPlayerInFrustumCone(playerPos) && this.map.hasLineOfSight(_botEyePos, _playerEyePos)) {
+                                    if (director) director.notifyShot(now);
+                                    this.attackCooldown = 0.8;
+                                    this.fireAtPlayer(player, _botEyePos, _playerEyePos, distToPlayer);
+                                } else {
+                                    this.attackCooldown = 0.08;
+                                }
+                            }
+                        }
+                    }
+                }
             }
-            const dx = this.targetWaypoint.x - this.position.x;
-            const dz = this.targetWaypoint.z - this.position.z;
+
+        } else if (this.state === 'FIGHTING_RETREAT' && player && !player.isDead && isGameStarted) {
+            if (this.bodyMesh && this.bodyMesh.position.y !== 1.05) this.bodyMesh.position.y = 1.05;
+            const targetP = (hasLos || !this.hasLastKnownPos) ? playerPos : this.lastKnownPlayerPos;
+            const dx = targetP.x - this.position.x;
+            const dz = targetP.z - this.position.z;
+            // Bot faces player
             this.targetRotationY = Math.atan2(dx, dz);
 
-            const forwardX = Math.sin(this.targetRotationY);
-            const forwardZ = Math.cos(this.targetRotationY);
-            const perpX = Math.cos(this.targetRotationY);
-            const perpZ = -Math.sin(this.targetRotationY);
+            // Backpedals away from player with lateral weave
+            const backpedalSpeed = this.speed * 0.85 * speedMultiplier;
+            const sideSpeed = Math.sin(this.walkCycle * 1.2) * (this.strafeSpeed * 0.85);
 
-            // Evasive sprint zig-zag
-            const evadeMultiplier = (this.archetype === 'SURVIVOR') ? 3.4 : 2.8;
-            const evadeWeave = Math.sin(this.walkCycle * 1.4) * evadeMultiplier;
-            const retreatSpeed = this.speed * 1.15 * speedMultiplier;
+            const backX = -Math.sin(this.targetRotationY) * backpedalSpeed;
+            const backZ = -Math.cos(this.targetRotationY) * backpedalSpeed;
+            const sideX = Math.cos(this.targetRotationY) * this.strafeDir * sideSpeed;
+            const sideZ = -Math.sin(this.targetRotationY) * this.strafeDir * sideSpeed;
 
             if (this.unstuckDuration > 0) {
                 this.unstuckDuration -= dt;
                 this.velocity.copy(this.unstuckVelocity);
             } else {
-                this.velocity.x = forwardX * retreatSpeed + perpX * evadeWeave;
-                this.velocity.z = forwardZ * retreatSpeed + perpZ * evadeWeave;
+                this.velocity.x = backX + sideX;
+                this.velocity.z = backZ + sideZ;
             }
 
-            // Occasional defensive return fire (strictly within FOV frustum and with LOS)
-            if (this.hasLockedTarget && isGameStarted && playerPos && Math.random() < 0.25) {
+            // Actively shoots back subject to CombatTokenDirector! Never turns back in the open.
+            if (this.hasLockedTarget && hasLos) {
                 this.attackCooldown -= dt;
                 if (this.attackCooldown <= 0) {
-                    if (this.isPlayerInFrustumCone(playerPos) && this.map.hasLineOfSight(_botEyePos, _playerEyePos)) {
-                        this.attackCooldown = 0.8;
+                    const director = this.manager ? this.manager.combatDirector : (window.botManager ? window.botManager.combatDirector : null);
+                    const now = (typeof performance !== 'undefined' && performance.now) ? performance.now() * 0.001 : Date.now() * 0.001;
+                    const canShoot = director ? director.canBotShoot(this, now) : true;
+                    if (canShoot && this.isPlayerInFrustumCone(playerPos) && this.map.hasLineOfSight(_botEyePos, _playerEyePos)) {
+                        if (director) director.notifyShot(now);
+                        this.attackCooldown = this.fireInterval + (Math.random() - 0.5) * 0.12;
                         this.fireAtPlayer(player, _botEyePos, _playerEyePos, distToPlayer);
                     } else {
                         this.attackCooldown = 0.08;
                     }
+                }
+            } else if (!hasLos) {
+                // If broke LOS during fighting retreat, search if cover point is reachable
+                const coverPoint = (this.map && playerPos && typeof this.map.findNearestCoverPoint === 'function')
+                    ? this.map.findNearestCoverPoint(this.position, playerPos, 16)
+                    : null;
+                if (coverPoint) {
+                    this.state = 'TAKE_COVER';
+                    this.targetWaypoint.copy(coverPoint);
+                    this.hasCoverObjective = true;
                 }
             }
 
@@ -1121,7 +1450,7 @@ class Bot {
         // Requirement 1: 3D Aim Pitch Alignment
         // When engaging/aiming at player, pitch headMesh and torso/arms directly along aim vector to player eye height
         let targetPitch = 0;
-        const isEngagingPlayer = (this.state === 'ENGAGE' || this.state === 'TAKE_COVER') && playerPos && !player.isDead && isGameStarted;
+        const isEngagingPlayer = (this.state === 'ENGAGE' || this.state === 'TAKE_COVER' || this.state === 'FIGHTING_RETREAT') && playerPos && !player.isDead && isGameStarted;
         if (isEngagingPlayer) {
             const targetPos = (hasLos || !this.hasLastKnownPos) ? playerPos : this.lastKnownPlayerPos;
             const distH = Math.hypot(targetPos.x - this.position.x, targetPos.z - this.position.z);
@@ -1230,6 +1559,16 @@ class Bot {
                 }
             }
         }
+
+        // Dynamic Wall Repulsion: query closest collision normal and add repulsion force
+        if (this.map && typeof this.map.getClosestCollisionNormal === 'function') {
+            const repulseFound = this.map.getClosestCollisionNormal(this.position, this.radius + 0.35, this.height, _wallHitNormal);
+            if (repulseFound) {
+                const repulseStrength = 1.2;
+                this.position.x += _wallHitNormal.x * repulseStrength * dt * 10;
+                this.position.z += _wallHitNormal.z * repulseStrength * dt * 10;
+            }
+        }
     }
 
     fireAtPlayer(player, botEyePos, playerEyePos, distToPlayer) {
@@ -1264,6 +1603,10 @@ class Bot {
         } else {
             _tracerEnd.copy(botEyePos).addScaledVector(_aimDir, maxShotDist);
         }
+
+        const director = this.manager ? this.manager.combatDirector : (window.botManager ? window.botManager.combatDirector : null);
+        const now = (typeof performance !== 'undefined' && performance.now) ? performance.now() * 0.001 : Date.now() * 0.001;
+        if (director) director.notifyShot(now);
 
         this.audio.playBotShoot(distToPlayer);
         this.particles.createTracer(botEyePos, _tracerEnd, 0xff9900);
@@ -1307,6 +1650,7 @@ class BotManager {
         this.audio = audio;
         this.particles = particles;
         this.bots = [];
+        this.combatDirector = new CombatTokenDirector();
 
         // Frustum culling optimization structures (reused every frame)
         this.cameraFrustum = new THREE.Frustum();
@@ -1334,7 +1678,8 @@ class BotManager {
 
     initBots() {
         this.botTemplates.forEach((t, index) => {
-            const bot = new Bot(index, t.name, 0x2e333a, this.scene, this.map, this.audio, this.particles, t);
+            const cfg = Object.assign({ manager: this }, t);
+            const bot = new Bot(index, t.name, 0x2e333a, this.scene, this.map, this.audio, this.particles, cfg);
             this.bots.push(bot);
         });
     }
@@ -1361,6 +1706,10 @@ class BotManager {
     }
 
     update(dt, player) {
+        if (this.combatDirector) {
+            this.combatDirector.update(dt, this.bots, player);
+        }
+
         let frustumReady = false;
         if (window.game && window.game.camera) {
             const cam = window.game.camera;
