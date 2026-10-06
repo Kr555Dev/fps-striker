@@ -33,6 +33,15 @@ playwright-report/
 .agents/
 .gemini/
 
+# AI Coding Assistants & Agents
+.claude/
+.cursor/
+.codebuddy/
+.qoder/
+.code-review-graph/
+.mcp.json
+opencode.jsonc
+
 # OS specific files
 .DS_Store
 Thumbs.db
@@ -44,3 +53,4 @@ desktop.ini
 temp/
 # Build & package outputs
 dist/
+.wrangler/
