@@ -327,6 +327,7 @@ class PlayerController {
         this.pitchObject.rotation.x = 0.4;
 
         if (window.uiManager) {
+            window.uiManager.updateHealth(0, this.maxHealth, 0, this.maxShield);
             window.uiManager.showDeathScreen();
         }
     }

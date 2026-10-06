@@ -9,6 +9,14 @@ A high-performance, browser-based 3D first-person shooter. Built with **Three.js
 
 ---
 
+## 🎯 Target Audience & Core Design Philosophy
+
+- **Target Audience**: Kids and teenagers aged **8 to 16–18** who love fast-paced competitive shooter games but do not own a PS5, high-end gaming PC, or money to purchase expensive titles. They are seeking high-octane, highly responsive, free browser and low-end hardware alternatives (reminiscent of Krunker / CS:GO / arcade classics). Casual adult players will also jump in for quick casual sessions.
+- **Future Multiplayer Roadmap**: Full multiplayer will be built on top of this entire codebase. All game state, entity tracking, physics tick cycles, and event dispatchers are cleanly decoupled with modular multiplayer network replication in mind.
+- **Performance Mandate**: Runs ultra-smoothly at **100 FPS** with zero stuttering or memory leaks on standard budget laptops and integrated graphics.
+
+---
+
 ## 🎮 Highlights & Features
 
 - **🚀 100+ FPS Zero-GC Engine**: Architectural zero-allocation render loop, geometry sharing, texture palette caching, and dirty-flagged DOM HUD updates.

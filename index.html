@@ -13,6 +13,13 @@
     <!-- Directional / Vignette Damage Flash -->
     <div id="damage-vignette"></div>
 
+    <!-- Low Health Critical Atmosphere & Vignette Overlay -->
+    <div id="low-health-overlay">
+        <div class="lh-perimeter-vignette"></div>
+        <div class="lh-pulse-border"></div>
+        <div class="lh-chromatic-fringe"></div>
+    </div>
+
     <!-- HUD Overlay -->
     <div id="hud">
         <!-- Top Left: Match Time, Ping, Mode & Team Scores -->
@@ -22,8 +29,10 @@
                     <span class="clock-icon">⏱</span>
                     <span id="match-timer">01:49</span>
                 </div>
-                <div id="ping-display">30 PING</div>
-                <div id="fps-counter">60 FPS</div>
+                <div class="telemetry-stack">
+                    <div id="ping-display">30 PING</div>
+                    <div id="fps-counter">60 FPS</div>
+                </div>
             </div>
             <div class="mode-map-row">
                 <span class="mode-label">Team Deathmatch</span>
@@ -101,8 +110,20 @@
             <span id="speed-val">0 SPD</span>
         </div>
 
-        <!-- Reload Prompt -->
+        <!-- Tactical Ammo Warnings & Prompts -->
         <div id="reload-prompt">PRESS [R] TO RELOAD</div>
+        <div id="low-ammo-alert" class="tactical-alert-badge low-ammo" style="display: none;">
+            <span class="alert-bracket">[</span>
+            <span class="alert-icon">⚠</span>
+            <span class="alert-text">LOW AMMO</span>
+            <span class="alert-bracket">]</span>
+        </div>
+        <div id="no-ammo-alert" class="tactical-alert-badge no-ammo" style="display: none;">
+            <span class="alert-bracket">[</span>
+            <span class="alert-icon">⛔</span>
+            <span class="alert-text">NO AMMO</span>
+            <span class="alert-bracket">]</span>
+        </div>
 
         <!-- Bottom Left: Chat Box & Player Card -->
         <div id="bottom-left-hud">
@@ -156,46 +177,275 @@
         <!-- Active Arcade Booster Status Display (ADRENALINE BURST / HYPER DAMAGE / NANO-SHIELD) -->
         <div id="active-boosters-hud"></div>
 
-        <!-- Bottom Right: Weapon Loadout & Ammo Status -->
+        <!-- Bottom Right: Modern Tactical Weapon HUD & Loadout -->
         <div id="bottom-right-hud">
-            <!-- Weapon Loadout Slots -->
+            <!-- Weapon Loadout Rack (Keys 1-5) -->
             <div id="weapon-loadout">
                 <div class="loadout-slot active" data-slot="ar">
+                    <span class="slot-key">1</span>
+                    <div class="slot-icon" id="slot-icon-ar">
+                        <svg viewBox="0 0 130 42" preserveAspectRatio="xMidYMid meet">
+                            <path d="M4 14 L22 14 L24 21 L16 28 L6 27 L4 23 Z" />
+                            <path d="M7 17 L19 17 L18 24 L10 24 Z" class="svg-cutout" />
+                            <rect x="22" y="16" width="12" height="5" />
+                            <path d="M34 13 L68 13 L68 22 L34 22 Z" />
+                            <path d="M38 10 L62 10 L60 13 L36 13 Z" />
+                            <path d="M42 6 L56 6 L58 10 L40 10 Z" />
+                            <rect x="45" y="8" width="6" height="2" class="svg-cutout" />
+                            <path d="M68 14 L96 14 L95 21 L68 21 Z" />
+                            <line x1="73" y1="17.5" x2="90" y2="17.5" class="svg-line" />
+                            <rect x="96" y="16" width="22" height="3" />
+                            <polygon points="98,12 101,12 102,16 97,16" />
+                            <path d="M118 14.5 L126 14.5 L126 20.5 L118 20.5 Z" />
+                            <path d="M35 22 L44 22 L40 36 L31 36 L34 29 Z" />
+                            <path d="M44 22 L51 22 L49 27 L43 27 Z" />
+                            <path d="M46 23 L45 25 L47 25 Z" class="svg-cutout" />
+                            <path d="M52 22 L62 22 L58 34 L54 40 L46 38 L49 32 L51 22 Z" />
+                            <line x1="52" y1="28" x2="56" y2="28" class="svg-line" />
+                            <line x1="50" y1="33" x2="54" y2="33" class="svg-line" />
+                        </svg>
+                    </div>
                     <span class="slot-name">Assault Rifle</span>
                     <span class="slot-ammo" id="slot-ammo-ar">30/90</span>
-                    <span class="slot-key">1</span>
                 </div>
                 <div class="loadout-slot" data-slot="revolver">
+                    <span class="slot-key">2</span>
+                    <div class="slot-icon" id="slot-icon-revolver">
+                        <svg viewBox="0 0 130 42" preserveAspectRatio="xMidYMid meet">
+                            <path d="M18 19 L32 19 L34 25 L30 38 L19 38 L15 32 L19 25 Z" />
+                            <circle cx="25" cy="28" r="2" class="svg-cutout" />
+                            <path d="M26 12 L33 12 L34 17 L29 17 Z" />
+                            <path d="M32 15 L64 15 L64 26 L32 26 Z" />
+                            <rect x="38" y="15" width="22" height="11" rx="2" />
+                            <rect x="41" y="17" width="16" height="2.5" rx="1" class="svg-cutout" />
+                            <rect x="41" y="21.5" width="16" height="2.5" rx="1" class="svg-cutout" />
+                            <path d="M33 26 L46 26 L43 33 L35 33 Z" />
+                            <path d="M38 27 L37 30 L40 30 Z" class="svg-cutout" />
+                            <path d="M64 14 L110 14 L110 24 L64 24 Z" />
+                            <rect x="66" y="11.5" width="40" height="2.5" />
+                            <rect x="72" y="12" width="5" height="1.5" class="svg-cutout" />
+                            <rect x="82" y="12" width="5" height="1.5" class="svg-cutout" />
+                            <rect x="92" y="12" width="5" height="1.5" class="svg-cutout" />
+                            <polygon points="104,8 109,8 110,13 103,13" />
+                        </svg>
+                    </div>
                     <span class="slot-name">Pistol</span>
                     <span class="slot-ammo" id="slot-ammo-revolver">6/12</span>
-                    <span class="slot-key">2</span>
                 </div>
                 <div class="loadout-slot" data-slot="sniper">
+                    <span class="slot-key">3</span>
+                    <div class="slot-icon" id="slot-icon-sniper">
+                        <svg viewBox="0 0 130 42" preserveAspectRatio="xMidYMid meet">
+                            <path d="M4 14 L20 14 L28 20 L28 27 L18 28 L10 27 L4 21 Z" />
+                            <path d="M9 17 L22 17 L24 23 L14 24 Z" class="svg-cutout" />
+                            <rect x="20" y="15" width="12" height="6" />
+                            <path d="M32 15 L64 15 L64 22 L32 22 Z" />
+                            <path d="M30 22 L38 22 L35 34 L28 34 Z" />
+                            <path d="M38 22 L45 22 L43 27 L37 27 Z" />
+                            <path d="M40 23 L39 25 L41 25 Z" class="svg-cutout" />
+                            <path d="M46 22 L56 22 L55 30 L46 30 Z" />
+                            <polygon points="43,10 47,10 47,15 44,15" />
+                            <circle cx="45" cy="10" r="2" />
+                            <path d="M28 6 L35 8 L64 8 L72 5 L72 11 L64 10 L35 10 L28 11 Z" />
+                            <rect x="36" y="9" width="4" height="6" />
+                            <rect x="56" y="9" width="4" height="6" />
+                            <rect x="47" y="4" width="5" height="3" />
+                            <rect x="64" y="16.5" width="52" height="3.5" />
+                            <path d="M116 13.5 L127 13.5 L127 22.5 L116 22.5 Z" />
+                            <rect x="119" y="15" width="2" height="6" class="svg-cutout" />
+                            <rect x="123" y="15" width="2" height="6" class="svg-cutout" />
+                            <path d="M84 20 L102 20 L102 22.5 L84 22.5 Z" />
+                            <polygon points="84,19 88,19 86,22" />
+                        </svg>
+                    </div>
                     <span class="slot-name">Sniper</span>
                     <span class="slot-ammo" id="slot-ammo-sniper">3/6</span>
-                    <span class="slot-key">3</span>
                 </div>
                 <div class="loadout-slot" data-slot="smg">
+                    <span class="slot-key">4</span>
+                    <div class="slot-icon" id="slot-icon-smg">
+                        <svg viewBox="0 0 130 42" preserveAspectRatio="xMidYMid meet">
+                            <path d="M6 13 L22 13 L24 16 L24 23 L22 26 L6 26 L6 22 L18 22 L18 17 L6 17 Z" />
+                            <rect x="22" y="15" width="12" height="6" />
+                            <path d="M34 11 L76 11 L76 22 L34 22 Z" />
+                            <rect x="48" y="13" width="8" height="4" class="svg-cutout" />
+                            <path d="M42 6 L56 6 L58 11 L40 11 Z" />
+                            <rect x="46" y="8" width="5" height="2" class="svg-cutout" />
+                            <path d="M35 22 L44 22 L41 36 L32 36 Z" />
+                            <path d="M44 22 L51 22 L49 27 L43 27 Z" />
+                            <path d="M46 23 L45 25 L47 25 Z" class="svg-cutout" />
+                            <path d="M50 22 L59 22 L57 40 L49 40 Z" />
+                            <rect x="47" y="38" width="12" height="2.5" />
+                            <path d="M68 22 L75 22 L73 34 L66 34 Z" />
+                            <rect x="76" y="14" width="12" height="4" />
+                            <path d="M88 12.5 L97 12.5 L97 19.5 L88 19.5 Z" />
+                            <rect x="91" y="14" width="2" height="4" class="svg-cutout" />
+                        </svg>
+                    </div>
                     <span class="slot-name">SMG</span>
                     <span class="slot-ammo" id="slot-ammo-smg">34/136</span>
-                    <span class="slot-key">4</span>
                 </div>
                 <div class="loadout-slot" data-slot="shotgun">
+                    <span class="slot-key">5</span>
+                    <div class="slot-icon" id="slot-icon-shotgun">
+                        <svg viewBox="0 0 130 42" preserveAspectRatio="xMidYMid meet">
+                            <path d="M4 14 L22 14 L34 20 L42 20 L42 25 L32 29 L14 29 L4 24 Z" />
+                            <path d="M6 18 L16 18 L14 25 L6 23 Z" class="svg-cutout" />
+                            <path d="M42 14 L64 14 L64 24 L42 24 Z" />
+                            <path d="M48 11 L54 11 L52 14 L48 14 Z" />
+                            <path d="M38 23 L48 23 L45 29 L37 28 Z" />
+                            <path d="M41 24 L40 27 L42 27 Z" class="svg-cutout" />
+                            <rect x="64" y="13.5" width="58" height="4.5" />
+                            <rect x="64" y="18.5" width="58" height="4.5" />
+                            <line x1="64" y1="18.2" x2="122" y2="18.2" class="svg-line" />
+                            <path d="M65 20 L92 20 L90 27 L65 27 Z" />
+                            <line x1="72" y1="23.5" x2="84" y2="23.5" class="svg-line" />
+                            <circle cx="118" cy="11.5" r="1.8" />
+                        </svg>
+                    </div>
                     <span class="slot-name">Shotgun</span>
                     <span class="slot-ammo" id="slot-ammo-shotgun">2/14</span>
-                    <span class="slot-key">5</span>
                 </div>
             </div>
 
-            <!-- Massive Tactical Ammo Display: <Current Mag Ammo> / <Total Reserve Bullets> -->
-            <div id="ammo-status">
-                <div class="ammo-numbers">
-                    <span id="ammo-current">30</span>
-                    <span class="ammo-slash">/</span>
-                    <span id="ammo-reserve">90</span>
-                    <span class="ammo-pips">!!!</span>
+            <!-- Active Weapon Featured HUD Card: Silhouette Projection & Ammunition -->
+            <div id="active-weapon-hud">
+                <!-- Weapon Title, Caliber & Firemode -->
+                <div class="active-weapon-header">
+                    <div class="weapon-title-group">
+                        <span id="weapon-name" class="active-weapon-name">ASSAULT RIFLE</span>
+                        <span id="weapon-class-tag" class="weapon-class-tag">COMMANDO // 5.56 NATO</span>
+                    </div>
+                    <div id="weapon-firemode" class="weapon-firemode">AUTO</div>
                 </div>
-                <div id="ammo-reserve-label">MAG CAP: <span id="ammo-max">30</span> &bull; TOTAL: <span id="ammo-total">120</span></div>
+
+                <!-- Featured 2D Vector Silhouette Projection Screen -->
+                <div class="weapon-silhouette-container">
+                    <div class="silhouette-grid-bg"></div>
+                    <div id="weapon-silhouette" class="weapon-silhouette-art">
+                        <!-- AR -->
+                        <div class="featured-silhouette active" data-weapon="ar">
+                            <svg viewBox="0 0 130 42" preserveAspectRatio="xMidYMid meet">
+                                <path d="M4 14 L22 14 L24 21 L16 28 L6 27 L4 23 Z" />
+                                <path d="M7 17 L19 17 L18 24 L10 24 Z" class="svg-cutout" />
+                                <rect x="22" y="16" width="12" height="5" />
+                                <path d="M34 13 L68 13 L68 22 L34 22 Z" />
+                                <path d="M38 10 L62 10 L60 13 L36 13 Z" />
+                                <path d="M42 6 L56 6 L58 10 L40 10 Z" />
+                                <rect x="45" y="8" width="6" height="2" class="svg-cutout" />
+                                <path d="M68 14 L96 14 L95 21 L68 21 Z" />
+                                <line x1="73" y1="17.5" x2="90" y2="17.5" class="svg-line" />
+                                <rect x="96" y="16" width="22" height="3" />
+                                <polygon points="98,12 101,12 102,16 97,16" />
+                                <path d="M118 14.5 L126 14.5 L126 20.5 L118 20.5 Z" />
+                                <path d="M35 22 L44 22 L40 36 L31 36 L34 29 Z" />
+                                <path d="M44 22 L51 22 L49 27 L43 27 Z" />
+                                <path d="M46 23 L45 25 L47 25 Z" class="svg-cutout" />
+                                <path d="M52 22 L62 22 L58 34 L54 40 L46 38 L49 32 L51 22 Z" />
+                                <line x1="52" y1="28" x2="56" y2="28" class="svg-line" />
+                                <line x1="50" y1="33" x2="54" y2="33" class="svg-line" />
+                            </svg>
+                        </div>
+                        <!-- Revolver -->
+                        <div class="featured-silhouette" data-weapon="revolver">
+                            <svg viewBox="0 0 130 42" preserveAspectRatio="xMidYMid meet">
+                                <path d="M18 19 L32 19 L34 25 L30 38 L19 38 L15 32 L19 25 Z" />
+                                <circle cx="25" cy="28" r="2" class="svg-cutout" />
+                                <path d="M26 12 L33 12 L34 17 L29 17 Z" />
+                                <path d="M32 15 L64 15 L64 26 L32 26 Z" />
+                                <rect x="38" y="15" width="22" height="11" rx="2" />
+                                <rect x="41" y="17" width="16" height="2.5" rx="1" class="svg-cutout" />
+                                <rect x="41" y="21.5" width="16" height="2.5" rx="1" class="svg-cutout" />
+                                <path d="M33 26 L46 26 L43 33 L35 33 Z" />
+                                <path d="M38 27 L37 30 L40 30 Z" class="svg-cutout" />
+                                <path d="M64 14 L110 14 L110 24 L64 24 Z" />
+                                <rect x="66" y="11.5" width="40" height="2.5" />
+                                <rect x="72" y="12" width="5" height="1.5" class="svg-cutout" />
+                                <rect x="82" y="12" width="5" height="1.5" class="svg-cutout" />
+                                <rect x="92" y="12" width="5" height="1.5" class="svg-cutout" />
+                                <polygon points="104,8 109,8 110,13 103,13" />
+                            </svg>
+                        </div>
+                        <!-- Sniper -->
+                        <div class="featured-silhouette" data-weapon="sniper">
+                            <svg viewBox="0 0 130 42" preserveAspectRatio="xMidYMid meet">
+                                <path d="M4 14 L20 14 L28 20 L28 27 L18 28 L10 27 L4 21 Z" />
+                                <path d="M9 17 L22 17 L24 23 L14 24 Z" class="svg-cutout" />
+                                <rect x="20" y="15" width="12" height="6" />
+                                <path d="M32 15 L64 15 L64 22 L32 22 Z" />
+                                <path d="M30 22 L38 22 L35 34 L28 34 Z" />
+                                <path d="M38 22 L45 22 L43 27 L37 27 Z" />
+                                <path d="M40 23 L39 25 L41 25 Z" class="svg-cutout" />
+                                <path d="M46 22 L56 22 L55 30 L46 30 Z" />
+                                <polygon points="43,10 47,10 47,15 44,15" />
+                                <circle cx="45" cy="10" r="2" />
+                                <path d="M28 6 L35 8 L64 8 L72 5 L72 11 L64 10 L35 10 L28 11 Z" />
+                                <rect x="36" y="9" width="4" height="6" />
+                                <rect x="56" y="9" width="4" height="6" />
+                                <rect x="47" y="4" width="5" height="3" />
+                                <rect x="64" y="16.5" width="52" height="3.5" />
+                                <path d="M116 13.5 L127 13.5 L127 22.5 L116 22.5 Z" />
+                                <rect x="119" y="15" width="2" height="6" class="svg-cutout" />
+                                <rect x="123" y="15" width="2" height="6" class="svg-cutout" />
+                                <path d="M84 20 L102 20 L102 22.5 L84 22.5 Z" />
+                                <polygon points="84,19 88,19 86,22" />
+                            </svg>
+                        </div>
+                        <!-- SMG -->
+                        <div class="featured-silhouette" data-weapon="smg">
+                            <svg viewBox="0 0 130 42" preserveAspectRatio="xMidYMid meet">
+                                <path d="M6 13 L22 13 L24 16 L24 23 L22 26 L6 26 L6 22 L18 22 L18 17 L6 17 Z" />
+                                <rect x="22" y="15" width="12" height="6" />
+                                <path d="M34 11 L76 11 L76 22 L34 22 Z" />
+                                <rect x="48" y="13" width="8" height="4" class="svg-cutout" />
+                                <path d="M42 6 L56 6 L58 11 L40 11 Z" />
+                                <rect x="46" y="8" width="5" height="2" class="svg-cutout" />
+                                <path d="M35 22 L44 22 L41 36 L32 36 Z" />
+                                <path d="M44 22 L51 22 L49 27 L43 27 Z" />
+                                <path d="M46 23 L45 25 L47 25 Z" class="svg-cutout" />
+                                <path d="M50 22 L59 22 L57 40 L49 40 Z" />
+                                <rect x="47" y="38" width="12" height="2.5" />
+                                <path d="M68 22 L75 22 L73 34 L66 34 Z" />
+                                <rect x="76" y="14" width="12" height="4" />
+                                <path d="M88 12.5 L97 12.5 L97 19.5 L88 19.5 Z" />
+                                <rect x="91" y="14" width="2" height="4" class="svg-cutout" />
+                            </svg>
+                        </div>
+                        <!-- Shotgun -->
+                        <div class="featured-silhouette" data-weapon="shotgun">
+                            <svg viewBox="0 0 130 42" preserveAspectRatio="xMidYMid meet">
+                                <path d="M4 14 L22 14 L34 20 L42 20 L42 25 L32 29 L14 29 L4 24 Z" />
+                                <path d="M6 18 L16 18 L14 25 L6 23 Z" class="svg-cutout" />
+                                <path d="M42 14 L64 14 L64 24 L42 24 Z" />
+                                <path d="M48 11 L54 11 L52 14 L48 14 Z" />
+                                <path d="M38 23 L48 23 L45 29 L37 28 Z" />
+                                <path d="M41 24 L40 27 L42 27 Z" class="svg-cutout" />
+                                <rect x="64" y="13.5" width="58" height="4.5" />
+                                <rect x="64" y="18.5" width="58" height="4.5" />
+                                <line x1="64" y1="18.2" x2="122" y2="18.2" class="svg-line" />
+                                <path d="M65 20 L92 20 L90 27 L65 27 Z" />
+                                <line x1="72" y1="23.5" x2="84" y2="23.5" class="svg-line" />
+                                <circle cx="118" cy="11.5" r="1.8" />
+                            </svg>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Integrated Tactical Ammunition Display -->
+                <div id="ammo-status">
+                    <div class="ammo-row">
+                        <div class="ammo-numbers">
+                            <span id="ammo-current">30</span>
+                            <span class="ammo-slash">/</span>
+                            <span id="ammo-reserve">90</span>
+                            <span class="ammo-pips">!!!</span>
+                        </div>
+                        <div class="ammo-gauge-track">
+                            <div id="ammo-gauge-fill" class="ammo-gauge-fill" style="width: 100%;"></div>
+                        </div>
+                    </div>
+                    <div id="ammo-reserve-label">MAG CAP: <span id="ammo-max">30</span> &bull; TOTAL: <span id="ammo-total">120</span></div>
+                </div>
             </div>
         </div>
 
@@ -266,6 +516,28 @@
                 <div class="setting-row">
                     <span>Audio Volume: <b id="setting-vol-val" style="color:#00ffcc;">70%</b></span>
                     <input type="range" id="setting-vol" class="setting-slider" min="0" max="100" value="70">
+                </div>
+            </div>
+
+            <!-- Tactical Audio Engine Sound Test Harness -->
+            <div class="audio-test-panel" style="margin-top: 14px; margin-bottom: 20px; padding: 12px 14px; background: rgba(0, 20, 25, 0.45); border: 1px solid rgba(0, 255, 204, 0.25); border-radius: 8px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                    <span style="font-size: 12px; color: #00ffcc; letter-spacing: 1px; font-weight: 700; text-transform: uppercase;">🔊 Audio Engine Diagnostics // Sound Test</span>
+                    <span style="font-size: 11px; color: rgba(255,255,255,0.5); font-family: monospace;">4-LAYER DYNAMICS BUS</span>
+                </div>
+                <div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; margin-bottom: 6px;">
+                    <button class="audio-test-btn" data-sound="ar" title="Test Assault Rifle">AR-47</button>
+                    <button class="audio-test-btn" data-sound="sniper" title="Test Marksman Sniper">SNIPER</button>
+                    <button class="audio-test-btn" data-sound="smg" title="Test Rapid SMG">SMG-9</button>
+                    <button class="audio-test-btn" data-sound="revolver" title="Test Heavy Revolver">REVOLVER</button>
+                    <button class="audio-test-btn" data-sound="shotgun" title="Test Double-Barrel Shotgun">SHOTGUN</button>
+                </div>
+                <div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px;">
+                    <button class="audio-test-btn" data-sound="headshot" title="Test Headshot Ding">HEADSHOT</button>
+                    <button class="audio-test-btn" data-sound="hit" title="Test Body Hit Tick">BODY HIT</button>
+                    <button class="audio-test-btn" data-sound="empty" title="Test Dry Fire Click">DRY FIRE</button>
+                    <button class="audio-test-btn" data-sound="lowammo" title="Test Low Ammo Warning">LOW AMMO</button>
+                    <button class="audio-test-btn" data-sound="heartbeat" title="Test Cardiac Heartbeat">HEARTBEAT</button>
                 </div>
             </div>
 

@@ -4,6 +4,10 @@
  * open-air navigation network, and robust penetration resolution.
  */
 
+// Pre-allocated scratch objects for zero-GC raycasting
+const _losDir = new THREE.Vector3();
+const _losRay = new THREE.Raycaster();
+
 class GameMap {
     constructor(scene) {
         this.scene = scene;
@@ -292,13 +296,15 @@ class GameMap {
     }
 
     hasLineOfSight(fromPos, toPos) {
-        const direction = new THREE.Vector3().subVectors(toPos, fromPos);
-        const distance = direction.length();
+        _losDir.subVectors(toPos, fromPos);
+        const distance = _losDir.length();
         if (distance < 0.1) return true;
-        direction.normalize();
+        _losDir.normalize();
 
-        const ray = new THREE.Raycaster(fromPos, direction, 0.2, distance - 0.2);
-        const hits = ray.intersectObjects(this.shootableMeshes, false);
+        _losRay.set(fromPos, _losDir);
+        _losRay.near = 0.2;
+        _losRay.far = distance - 0.2;
+        const hits = _losRay.intersectObjects(this.shootableMeshes, false);
         return hits.length === 0;
     }
 
@@ -329,8 +335,8 @@ class GameMap {
         const minY = pos.y + 0.1;
         const maxY = pos.y + height - 0.1;
 
-        // 2-pass iterative resolution for rock-solid corner & compound box depenetration
-        for (let pass = 0; pass < 2; pass++) {
+        // 3-pass iterative resolution for rock-solid corner & compound box depenetration
+        for (let pass = 0; pass < 3; pass++) {
             for (let i = 0; i < this.colliders.length; i++) {
                 const c = this.colliders[i];
                 if (c.max.y <= 0.1) continue;
@@ -359,6 +365,49 @@ class GameMap {
                 }
             }
         }
+    }
+
+    getClosestCollisionNormal(pos, radius = 0.55, height = 1.75, outNormal = null) {
+        if (!outNormal) outNormal = new THREE.Vector3();
+        outNormal.set(0, 0, 0);
+
+        const minY = pos.y + 0.1;
+        const maxY = pos.y + height - 0.1;
+        let minOverlap = 999999;
+        let found = false;
+        const margin = 0.20; // Proximity margin for wall contact detection
+
+        for (let i = 0; i < this.colliders.length; i++) {
+            const c = this.colliders[i];
+            if (c.max.y <= 0.1) continue;
+            if (c.isRamp && pos.y >= c.max.y - 0.5) continue;
+            if (maxY <= c.min.y || minY >= c.max.y) continue;
+
+            const minX = pos.x - radius - margin;
+            const maxX = pos.x + radius + margin;
+            const minZ = pos.z - radius - margin;
+            const maxZ = pos.z + radius + margin;
+
+            if (maxX > c.min.x && minX < c.max.x &&
+                maxZ > c.min.z && minZ < c.max.z) {
+
+                const overlapLeft = (pos.x + radius) - c.min.x;
+                const overlapRight = c.max.x - (pos.x - radius);
+                const overlapFront = (pos.z + radius) - c.min.z;
+                const overlapBack = c.max.z - (pos.z - radius);
+
+                const currentMin = Math.min(overlapLeft, overlapRight, overlapFront, overlapBack);
+                if (currentMin < minOverlap) {
+                    minOverlap = currentMin;
+                    found = true;
+                    if (currentMin === overlapLeft) outNormal.set(-1, 0, 0);
+                    else if (currentMin === overlapRight) outNormal.set(1, 0, 0);
+                    else if (currentMin === overlapFront) outNormal.set(0, 0, -1);
+                    else if (currentMin === overlapBack) outNormal.set(0, 0, 1);
+                }
+            }
+        }
+        return found;
     }
 
     getSafeSpawnPoint(enemyPositions = [], minDistance = 20) {

@@ -13,9 +13,16 @@ class UIManager {
         this.ammoMax = document.getElementById('ammo-max');
         this.ammoTotal = document.getElementById('ammo-total');
         this.weaponName = document.getElementById('weapon-name');
+        this.weaponClassTag = document.getElementById('weapon-class-tag');
+        this.weaponFiremode = document.getElementById('weapon-firemode');
+        this.activeWeaponHud = document.getElementById('active-weapon-hud');
+        this.ammoGaugeFill = document.getElementById('ammo-gauge-fill');
+        this.currentWeaponId = null;
         this.killfeed = document.getElementById('killfeed');
         this.hitmarker = document.getElementById('hitmarker');
         this.reloadPrompt = document.getElementById('reload-prompt');
+        this.lowAmmoAlert = document.getElementById('low-ammo-alert');
+        this.noAmmoAlert = document.getElementById('no-ammo-alert');
         this.matchScore = document.getElementById('match-score');
         this.matchTimer = document.getElementById('match-timer');
         this.matchStreak = document.getElementById('match-streak');
@@ -23,7 +30,10 @@ class UIManager {
         this.scoreboardModal = document.getElementById('scoreboard-modal');
         this.scoreboardBody = document.getElementById('scoreboard-body');
         this.fpsCounter = document.getElementById('fps-counter');
+        this.pingDisplay = document.getElementById('ping-display');
         this.killMedalContainer = document.getElementById('kill-medal-container');
+        this.lowHealthOverlay = document.getElementById('low-health-overlay');
+        this.currentLowHealthTier = 0; // 0 = none, 1 = moderate, 2 = critical
 
         this.hitmarkerTimeout = null;
         this.crosshairTimeout = null;
@@ -33,10 +43,12 @@ class UIManager {
         this.isMatchEnded = false;
         this.timerInterval = null;
 
-        // FPS tracking
+        // FPS & Telemetry tracking
         this.frameCount = 0;
         this.lastFpsUpdate = performance.now();
         this.currentFps = 60;
+        this.currentPing = 28;
+        this.lastPingUpdate = performance.now();
 
         this.initSettings();
         this.initScoreboardModal();
@@ -81,6 +93,41 @@ class UIManager {
                 if (window.soundEngine) window.soundEngine.setMasterVolume(window.gameSettings.volume);
             });
         }
+
+        // Tactical Audio Engine Sound Test Buttons
+        const audioTestBtns = document.querySelectorAll('.audio-test-btn');
+        audioTestBtns.forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                if (!window.soundEngine) return;
+                window.soundEngine.resume();
+                const sound = btn.dataset.sound;
+                switch (sound) {
+                    case 'ar':
+                    case 'sniper':
+                    case 'smg':
+                    case 'revolver':
+                    case 'shotgun':
+                        window.soundEngine.playShoot(sound);
+                        break;
+                    case 'headshot':
+                        window.soundEngine.playHit(true);
+                        break;
+                    case 'hit':
+                        window.soundEngine.playHit(false);
+                        break;
+                    case 'empty':
+                        window.soundEngine.playEmptyClick();
+                        break;
+                    case 'lowammo':
+                        window.soundEngine.playLowAmmoWarning(2, 8);
+                        break;
+                    case 'heartbeat':
+                        window.soundEngine.playHeartbeatThud(2);
+                        break;
+                }
+            });
+        });
 
         const respawnBtn = document.getElementById('btn-respawn');
         if (respawnBtn) {
@@ -223,6 +270,7 @@ class UIManager {
     }
 
     startNewMatch() {
+        this.clearLowHealthEffects();
         this.isMatchEnded = false;
         this.matchTimeRemaining = 180; // 3 full minutes
 
@@ -292,8 +340,24 @@ class UIManager {
             this.frameCount = 0;
             this.lastFpsUpdate = now;
             if (this.fpsCounter) {
-                this.fpsCounter.innerText = `${this.currentFps} FPS`;
-                this.fpsCounter.style.color = this.currentFps >= 45 ? '#00ff88' : (this.currentFps >= 30 ? '#ffaa00' : '#ff2255');
+                const text = `${this.currentFps} FPS`;
+                if (this.fpsCounter.textContent !== text) {
+                    this.fpsCounter.textContent = text;
+                }
+                const color = this.currentFps >= 45 ? '#00ff88' : (this.currentFps >= 30 ? '#ffaa00' : '#ff2255');
+                if (this.fpsCounter.style.color !== color) {
+                    this.fpsCounter.style.color = color;
+                }
+            }
+
+            // Subtle dynamic ping variation every ~2.5s for authentic esports telemetry
+            if (this.pingDisplay && now - this.lastPingUpdate >= 2500) {
+                this.lastPingUpdate = now;
+                this.currentPing = 26 + Math.floor(Math.random() * 8);
+                const pingText = `${this.currentPing} PING`;
+                if (this.pingDisplay.textContent !== pingText) {
+                    this.pingDisplay.textContent = pingText;
+                }
             }
         }
     }
@@ -399,6 +463,91 @@ class UIManager {
             } else {
                 shieldRow.style.display = 'none';
             }
+        }
+
+        // Two-Tier Low Health Indicator Logic
+        this.updateLowHealthState(current);
+    }
+
+    updateLowHealthState(currentHp) {
+        let targetTier = 0;
+        if (currentHp > 0 && currentHp <= 20) {
+            targetTier = 2; // Tier 2: Critical
+        } else if (currentHp > 20 && currentHp <= 50) {
+            targetTier = 1; // Tier 1: Moderate
+        } else {
+            targetTier = 0; // Safe / Restored (> 50) or Dead (0)
+        }
+
+        if (this.currentLowHealthTier === targetTier) return;
+        this.currentLowHealthTier = targetTier;
+
+        const overlay = this.lowHealthOverlay || document.getElementById('low-health-overlay');
+        const playerCard = document.getElementById('player-card');
+        const hpRow = document.querySelector('.hp-row');
+
+        if (targetTier === 2) {
+            // Activate Tier 2 (Critical)
+            if (overlay) {
+                overlay.classList.add('active', 'tier-2');
+                overlay.classList.remove('tier-1');
+            }
+            if (playerCard) {
+                playerCard.classList.add('danger-critical');
+                playerCard.classList.remove('danger-moderate');
+            }
+            if (hpRow) {
+                hpRow.classList.add('danger-critical');
+                hpRow.classList.remove('danger-moderate');
+            }
+
+            // Procedural Audio Engine
+            if (window.soundEngine) {
+                window.soundEngine.startLowHealthAudio(2);
+            }
+        } else if (targetTier === 1) {
+            // Activate Tier 1 (Moderate)
+            if (overlay) {
+                overlay.classList.add('active', 'tier-1');
+                overlay.classList.remove('tier-2');
+            }
+            if (playerCard) {
+                playerCard.classList.add('danger-moderate');
+                playerCard.classList.remove('danger-critical');
+            }
+            if (hpRow) {
+                hpRow.classList.add('danger-moderate');
+                hpRow.classList.remove('danger-critical');
+            }
+
+            // Procedural Audio Engine
+            if (window.soundEngine) {
+                window.soundEngine.startLowHealthAudio(1);
+            }
+        } else {
+            // Tier 0: Seamlessly deactivate all effects
+            this.clearLowHealthEffects();
+        }
+    }
+
+    clearLowHealthEffects() {
+        this.currentLowHealthTier = 0;
+        const overlay = this.lowHealthOverlay || document.getElementById('low-health-overlay');
+        const playerCard = document.getElementById('player-card');
+        const hpRow = document.querySelector('.hp-row');
+
+        if (overlay) {
+            overlay.classList.remove('active', 'tier-1', 'tier-2');
+        }
+        if (playerCard) {
+            playerCard.classList.remove('danger-moderate', 'danger-critical');
+        }
+        if (hpRow) {
+            hpRow.classList.remove('danger-moderate', 'danger-critical');
+        }
+
+        if (window.soundEngine) {
+            window.soundEngine.stopLowHealthAudio();
         }
     }
 
@@ -531,30 +680,135 @@ class UIManager {
             }
         }
 
-        // Tactical Ammo Status Styling
+        // Active weapon card name, subtitle & firemode
+        if (this.currentWeaponId !== weapon.id) {
+            this.currentWeaponId = weapon.id;
+
+            const weaponUpper = (weapon.name || weapon.id).toUpperCase();
+            const nameEl = this.weaponName || document.getElementById('weapon-name');
+            if (nameEl && nameEl.textContent !== weaponUpper) {
+                nameEl.textContent = weaponUpper;
+            }
+
+            const metaMap = {
+                ar: { tag: 'COMMANDO // 5.56 NATO', firemode: 'AUTO' },
+                revolver: { tag: 'ENFORCER // .44 MAGNUM', firemode: 'SEMI' },
+                sniper: { tag: 'MARKSMAN // .50 BMG', firemode: 'BOLT' },
+                smg: { tag: 'SKIRMISHER // 9MM HYPER', firemode: 'AUTO' },
+                shotgun: { tag: 'BREACHER // 12 GAUGE', firemode: 'BREAK' }
+            };
+            const meta = metaMap[weapon.id] || { tag: 'TACTICAL WEAPON', firemode: 'SEMI' };
+
+            const tagEl = this.weaponClassTag || document.getElementById('weapon-class-tag');
+            if (tagEl && tagEl.textContent !== meta.tag) {
+                tagEl.textContent = meta.tag;
+            }
+
+            const firemodeEl = this.weaponFiremode || document.getElementById('weapon-firemode');
+            if (firemodeEl && firemodeEl.textContent !== meta.firemode) {
+                firemodeEl.textContent = meta.firemode;
+            }
+
+            // Featured 2D Silhouette Switching (Instant zero-allocation class toggle)
+            const silhouettes = document.querySelectorAll('.featured-silhouette');
+            silhouettes.forEach(s => {
+                s.classList.toggle('active', s.dataset.weapon === weapon.id);
+            });
+        }
+
+        // Update Tactical Ammo Gauge Bar
+        const gauge = this.ammoGaugeFill || document.getElementById('ammo-gauge-fill');
+        if (gauge) {
+            const pct = weapon.magSize > 0 ? Math.max(0, Math.min(100, Math.round((ammo.clip / weapon.magSize) * 100))) : 0;
+            const pctStr = `${pct}%`;
+            if (gauge.style.width !== pctStr) {
+                gauge.style.width = pctStr;
+            }
+            if (pct <= 25) {
+                gauge.classList.add('low');
+            } else {
+                gauge.classList.remove('low');
+            }
+        }
+
+        // Tactical Ammo Status Styling (< 25% Mag Capacity = Low Ammo)
+        const magSize = weapon.magSize || 30;
+        const lowAmmoThreshold = Math.max(1, Math.floor(magSize * 0.25));
+        const isLowAmmo = ammo.clip > 0 && ammo.clip <= lowAmmoThreshold;
+
         const ammoStatus = this.ammoStatus || document.getElementById('ammo-status');
         const ammoNumbers = this.ammoNumbers || document.querySelector('.ammo-numbers');
+        const activeHud = this.activeWeaponHud || document.getElementById('active-weapon-hud');
 
         if (ammoStatus) {
             if (ammo.clip === 0 && ammo.reserve === 0) {
                 // Completely exhausted!
                 ammoStatus.classList.add('out-of-ammo');
-                ammoStatus.classList.remove('clip-empty', 'reserve-empty');
-                if (ammoNumbers) ammoNumbers.classList.add('out-of-ammo');
+                ammoStatus.classList.remove('clip-empty', 'reserve-empty', 'low-ammo');
+                if (ammoNumbers) {
+                    ammoNumbers.classList.add('out-of-ammo');
+                    ammoNumbers.classList.remove('low-ammo');
+                }
+                if (activeHud) {
+                    activeHud.classList.add('out-of-ammo');
+                    activeHud.classList.remove('clip-empty', 'reserve-empty', 'low-ammo');
+                }
+                this.hideLowAmmoWarning();
             } else if (ammo.clip === 0 && ammo.reserve > 0) {
                 // Magazine empty, but reserves available
                 ammoStatus.classList.add('clip-empty');
-                ammoStatus.classList.remove('out-of-ammo', 'reserve-empty');
-                if (ammoNumbers) ammoNumbers.classList.remove('out-of-ammo');
+                ammoStatus.classList.remove('out-of-ammo', 'reserve-empty', 'low-ammo');
+                if (ammoNumbers) {
+                    ammoNumbers.classList.remove('out-of-ammo', 'low-ammo');
+                }
+                if (activeHud) {
+                    activeHud.classList.add('clip-empty');
+                    activeHud.classList.remove('out-of-ammo', 'reserve-empty', 'low-ammo');
+                }
+                this.hideLowAmmoWarning();
             } else if (ammo.reserve === 0 && ammo.clip > 0) {
                 // Chamber has bullets, but reserve pool is empty
                 ammoStatus.classList.add('reserve-empty');
                 ammoStatus.classList.remove('out-of-ammo', 'clip-empty');
                 if (ammoNumbers) ammoNumbers.classList.remove('out-of-ammo');
+                if (activeHud) {
+                    activeHud.classList.add('reserve-empty');
+                    activeHud.classList.remove('out-of-ammo', 'clip-empty');
+                }
+                if (isLowAmmo) {
+                    ammoStatus.classList.add('low-ammo');
+                    if (ammoNumbers) ammoNumbers.classList.add('low-ammo');
+                    if (activeHud) activeHud.classList.add('low-ammo');
+                    this.showLowAmmoWarning();
+                } else {
+                    ammoStatus.classList.remove('low-ammo');
+                    if (ammoNumbers) ammoNumbers.classList.remove('low-ammo');
+                    if (activeHud) activeHud.classList.remove('low-ammo');
+                    this.hideLowAmmoWarning();
+                }
+            } else if (isLowAmmo) {
+                // Low ammo (< 25% magazine capacity)
+                ammoStatus.classList.add('low-ammo');
+                ammoStatus.classList.remove('out-of-ammo', 'clip-empty', 'reserve-empty');
+                if (ammoNumbers) {
+                    ammoNumbers.classList.add('low-ammo');
+                    ammoNumbers.classList.remove('out-of-ammo');
+                }
+                if (activeHud) {
+                    activeHud.classList.add('low-ammo');
+                    activeHud.classList.remove('out-of-ammo', 'clip-empty', 'reserve-empty');
+                }
+                this.showLowAmmoWarning();
             } else {
                 // Fully supplied
-                ammoStatus.classList.remove('out-of-ammo', 'clip-empty', 'reserve-empty');
-                if (ammoNumbers) ammoNumbers.classList.remove('out-of-ammo');
+                ammoStatus.classList.remove('out-of-ammo', 'clip-empty', 'reserve-empty', 'low-ammo');
+                if (ammoNumbers) {
+                    ammoNumbers.classList.remove('out-of-ammo', 'low-ammo');
+                }
+                if (activeHud) {
+                    activeHud.classList.remove('out-of-ammo', 'clip-empty', 'reserve-empty', 'low-ammo');
+                }
+                this.hideLowAmmoWarning();
             }
         }
 
@@ -602,6 +856,12 @@ class UIManager {
                 slot.classList.remove('active');
             }
         });
+
+        // Keep featured silhouette aligned
+        const silhouettes = document.querySelectorAll('.featured-silhouette');
+        silhouettes.forEach(s => {
+            s.classList.toggle('active', s.dataset.weapon === key);
+        });
     }
 
     triggerHitmarker(isHeadshot = false) {
@@ -620,7 +880,65 @@ class UIManager {
         }, 120);
     }
 
+    showLowAmmoWarning() {
+        const el = this.lowAmmoAlert || document.getElementById('low-ammo-alert');
+        if (el) {
+            el.style.display = 'flex';
+        }
+    }
+
+    hideLowAmmoWarning() {
+        const el = this.lowAmmoAlert || document.getElementById('low-ammo-alert');
+        if (el) {
+            el.style.display = 'none';
+        }
+    }
+
+    showNoAmmoAlert() {
+        const text = '[ ! NO AMMO // OUT OF AMMO ]';
+        if (this.reloadPrompt) {
+            this.reloadPrompt.textContent = text;
+            this.reloadPrompt.classList.add('ammo-depleted-warning', 'no-ammo-alert');
+            this.reloadPrompt.style.display = 'block';
+        }
+
+        const noAmmoBadge = this.noAmmoAlert || document.getElementById('no-ammo-alert');
+        if (noAmmoBadge) {
+            noAmmoBadge.style.display = 'none';
+        }
+
+        this.hideLowAmmoWarning();
+
+        if (this.ammoWarningTimeout) clearTimeout(this.ammoWarningTimeout);
+        this.ammoWarningTimeout = setTimeout(() => {
+            if (this.reloadPrompt && this.reloadPrompt.classList.contains('ammo-depleted-warning')) {
+                this.reloadPrompt.style.display = 'none';
+                this.reloadPrompt.classList.remove('ammo-depleted-warning', 'no-ammo-alert');
+                this.reloadPrompt.textContent = 'PRESS [R] TO RELOAD';
+            }
+            const badge = this.noAmmoAlert || document.getElementById('no-ammo-alert');
+            if (badge) {
+                badge.style.display = 'none';
+            }
+        }, 1300);
+    }
+
+    hideNoAmmoAlert() {
+        if (this.reloadPrompt) {
+            this.reloadPrompt.style.display = 'none';
+            this.reloadPrompt.classList.remove('ammo-depleted-warning', 'no-ammo-alert');
+        }
+        const noAmmoBadge = this.noAmmoAlert || document.getElementById('no-ammo-alert');
+        if (noAmmoBadge) {
+            noAmmoBadge.style.display = 'none';
+        }
+    }
+
     showAmmoWarning(text = 'OUT OF AMMO') {
+        if (text === 'OUT OF AMMO' || text === 'NO AMMO') {
+            this.showNoAmmoAlert();
+            return;
+        }
         if (!this.reloadPrompt) return;
         this.reloadPrompt.textContent = text;
         this.reloadPrompt.classList.add('ammo-depleted-warning');
@@ -638,7 +956,7 @@ class UIManager {
 
     showReloadPrompt() {
         if (!this.reloadPrompt) return;
-        this.reloadPrompt.classList.remove('ammo-depleted-warning');
+        this.reloadPrompt.classList.remove('ammo-depleted-warning', 'no-ammo-alert');
         this.reloadPrompt.textContent = 'PRESS [R] TO RELOAD';
         this.reloadPrompt.style.display = 'block';
     }
@@ -646,7 +964,11 @@ class UIManager {
     hideReloadPrompt() {
         if (this.reloadPrompt) {
             this.reloadPrompt.style.display = 'none';
-            this.reloadPrompt.classList.remove('ammo-depleted-warning');
+            this.reloadPrompt.classList.remove('ammo-depleted-warning', 'no-ammo-alert');
+        }
+        const noAmmoBadge = this.noAmmoAlert || document.getElementById('no-ammo-alert');
+        if (noAmmoBadge) {
+            noAmmoBadge.style.display = 'none';
         }
     }
 
@@ -761,11 +1083,13 @@ class UIManager {
     }
 
     showDeathScreen() {
+        this.clearLowHealthEffects();
         if (this.deathScreen) this.deathScreen.style.display = 'flex';
         document.exitPointerLock();
     }
 
     hideDeathScreen() {
+        this.clearLowHealthEffects();
         if (this.deathScreen) this.deathScreen.style.display = 'none';
     }
 
