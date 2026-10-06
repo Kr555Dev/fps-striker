@@ -43,6 +43,11 @@ class SoundEngine {
             switch: null
         };
         this.samplesLoaded = false;
+        // Active gunshot voices for fast full-auto decay ducking
+        this.activeGunshotVoices = {
+            ar: [],
+            smg: []
+        };
 
         // Weapon AudioBuffers: 4 variations per weapon for anti-fatigue round-robin
         this.weaponBuffers = {
@@ -221,6 +226,47 @@ class SoundEngine {
     // REAL AUDIO SAMPLE PRELOADING (CC0 REAL RECORDINGS)
     // ==========================================
 
+    trimAudioBufferSilence(buffer, threshold = 0.015) {
+        if (!buffer || !this.ctx) return buffer;
+        const numChannels = buffer.numberOfChannels;
+        const length = buffer.length;
+        const sampleRate = buffer.sampleRate;
+
+        // Scan all channels to find the first sample crossing the noise threshold
+        let firstIndex = length;
+        for (let c = 0; c < numChannels; c++) {
+            const data = buffer.getChannelData(c);
+            for (let i = 0; i < length; i++) {
+                if (Math.abs(data[i]) >= threshold) {
+                    if (i < firstIndex) firstIndex = i;
+                    break;
+                }
+            }
+        }
+
+        // Leave a tiny 1ms pre-attack cushion (e.g. 44 samples at 44.1kHz) to avoid clicks
+        const cushion = Math.floor(sampleRate * 0.001);
+        const startIndex = Math.max(0, firstIndex - cushion);
+
+        // If silence was <= 2ms, keep original buffer
+        if (startIndex <= Math.floor(sampleRate * 0.002)) {
+            return buffer;
+        }
+
+        const newLength = length - startIndex;
+        if (newLength <= 0) return buffer;
+
+        const trimmedBuffer = this.ctx.createBuffer(numChannels, newLength, sampleRate);
+        for (let c = 0; c < numChannels; c++) {
+            const src = buffer.getChannelData(c);
+            const dst = trimmedBuffer.getChannelData(c);
+            for (let j = 0; j < newLength; j++) {
+                dst[j] = src[startIndex + j];
+            }
+        }
+        return trimmedBuffer;
+    }
+
     async loadAudioSample(url) {
         if (!this.ctx) return null;
         try {
@@ -230,7 +276,9 @@ class SoundEngine {
                 return null;
             }
             const arrayBuffer = await resp.arrayBuffer();
-            return await this.ctx.decodeAudioData(arrayBuffer);
+            const decoded = await this.ctx.decodeAudioData(arrayBuffer);
+            // Automatically strip leading silence for instantaneous attack transients
+            return this.trimAudioBufferSilence(decoded);
         } catch (err) {
             console.warn(`Error decoding audio sample ${url}:`, err);
             return null;
@@ -240,30 +288,25 @@ class SoundEngine {
     async preloadWeaponSamples() {
         if (typeof window === 'undefined' || !this.ctx) return;
         const sampleManifest = [
-            // AR-47 (3 round-robin shot variations)
-            { category: 'ar', url: './assets/audio/weapons/ar/fire_1.mp3' },
+            // AR-47 (Exact 1 clip kept by user)
             { category: 'ar', url: './assets/audio/weapons/ar/fire_2.mp3' },
-            { category: 'ar', url: './assets/audio/weapons/ar/fire_3.mp3' },
 
-            // Sniper (AWM / Mosin high caliber + bolt)
+            // Sniper (Exact 1 clip kept by user + bolt cycle)
             { category: 'sniper', url: './assets/audio/weapons/sniper/fire_1.mp3' },
-            { category: 'sniper', url: './assets/audio/weapons/sniper/fire_2.mp3' },
             { category: 'sniper_bolt', url: './assets/audio/weapons/sniper/bolt.mp3' },
 
-            // Shotgun (M870 / Saiga heavy scatter + pump)
+            // Shotgun (Exact 1 clip kept by user + pump cycle)
             { category: 'shotgun', url: './assets/audio/weapons/shotgun/fire_1.mp3' },
-            { category: 'shotgun', url: './assets/audio/weapons/shotgun/fire_2.mp3' },
             { category: 'shotgun_pump', url: './assets/audio/weapons/shotgun/pump.mp3' },
 
-            // SMG (MP5 / Vector rapid snappy fire)
+            // Revolver (Exact 1 clip kept by user + hammer cock)
+            { category: 'revolver', url: './assets/audio/weapons/revolver/fire_1.mp3' },
+            { category: 'revolver_hammer', url: './assets/audio/weapons/revolver/hammer.mp3' },
+
+            // SMG (Exact 3 clips kept by user)
             { category: 'smg', url: './assets/audio/weapons/smg/fire_1.mp3' },
             { category: 'smg', url: './assets/audio/weapons/smg/fire_2.mp3' },
             { category: 'smg', url: './assets/audio/weapons/smg/fire_3.mp3' },
-
-            // Revolver (OT-38 / Deagle heavy hand cannon + hammer)
-            { category: 'revolver', url: './assets/audio/weapons/revolver/fire_1.mp3' },
-            { category: 'revolver', url: './assets/audio/weapons/revolver/fire_2.mp3' },
-            { category: 'revolver_hammer', url: './assets/audio/weapons/revolver/hammer.mp3' },
 
             // Weapon Reloader Mechanics
             { category: 'reload_ar', url: './assets/audio/weapons/ar/reload.mp3' },
@@ -722,10 +765,29 @@ class SoundEngine {
             if (type === 'sniper') baseGain = 1.25;
             else if (type === 'revolver') baseGain = 1.15;
             else if (type === 'shotgun') baseGain = 1.10;
-            else if (type === 'ar') baseGain = 0.95;
-            else if (type === 'smg') baseGain = 0.90;
+            else if (type === 'ar') baseGain = 1.05;
+            else if (type === 'smg') baseGain = 1.00;
 
             shotGain.gain.setValueAtTime(baseGain * volJitter, now);
+
+            // Rapid-Fire Voice Management for high cyclic-rate weapons (AR & SMG)
+            // Duck/fade long decaying tails from earlier shots so each bullet cracks cleanly and punchily
+            if (type === 'ar' || type === 'smg') {
+                const voiceList = this.activeGunshotVoices[type];
+                if (voiceList) {
+                    for (let i = 0; i < voiceList.length; i++) {
+                        const prevGain = voiceList[i];
+                        try {
+                            // Quick 25ms crossfade out on preceding voice to prevent muffled audio buildup
+                            prevGain.gain.cancelScheduledValues(now);
+                            prevGain.gain.setValueAtTime(prevGain.gain.value, now);
+                            prevGain.gain.linearRampToValueAtTime(0.001, now + 0.025);
+                        } catch (e) {}
+                    }
+                    voiceList.length = 0;
+                    voiceList.push(shotGain);
+                }
+            }
 
             source.connect(shotGain);
             shotGain.connect(this.sfxGain);
