@@ -52,6 +52,7 @@ class UIManager {
 
         this.initSettings();
         this.initScoreboardModal();
+        this.initLobbyInteractions();
         this.startMatchTimer();
     }
 
@@ -91,6 +92,16 @@ class UIManager {
                 window.gameSettings.volume = val / 100;
                 if (volVal) volVal.innerText = `${val}%`;
                 if (window.soundEngine) window.soundEngine.setMasterVolume(window.gameSettings.volume);
+            });
+        }
+
+        const bgmSlider = document.getElementById('setting-bgm');
+        const bgmVal = document.getElementById('setting-bgm-val');
+        if (bgmSlider) {
+            bgmSlider.addEventListener('input', (e) => {
+                const val = parseInt(e.target.value);
+                if (bgmVal) bgmVal.innerText = `${val}%`;
+                if (window.soundEngine) window.soundEngine.setMusicVolume(val / 100);
             });
         }
 
@@ -194,6 +205,222 @@ class UIManager {
         });
     }
 
+    initLobbyInteractions() {
+        // --- 1. Loadout / Weapon Customization Modal ---
+        const openCustomizeBtns = [
+            document.getElementById('btn-open-customize'),
+            document.getElementById('btn-customize-tag')
+        ].filter(Boolean);
+
+        const customizeModal = document.getElementById('customize-modal');
+        const closeCustomizeBtn = document.getElementById('btn-close-customize');
+        const confirmLoadoutBtn = document.getElementById('btn-confirm-loadout');
+        const lobbyClassTitle = document.getElementById('lobby-class-title');
+        const lobbyGunName = document.getElementById('lobby-gun-name');
+
+        const classInfo = {
+            ar: { title: 'Commando', name: 'Assault Rifle' },
+            revolver: { title: 'Enforcer', name: '.357 Magnum' },
+            sniper: { title: 'Marksman', name: 'AWM Sniper' },
+            smg: { title: 'Infiltrator', name: 'SMG-9' },
+            shotgun: { title: 'Vanguard', name: 'Double-Barrel' }
+        };
+
+        const openCustomize = (e) => {
+            if (e) {
+                e.stopPropagation();
+                e.preventDefault();
+            }
+            if (!customizeModal) return;
+            customizeModal.style.display = 'flex';
+            if (window.soundEngine) window.soundEngine.playEmptyClick();
+
+            // Highlight selected card
+            const currentWeapon = window.selectedStartingWeapon || 'ar';
+            document.querySelectorAll('#customize-modal .weapon-card').forEach(card => {
+                card.classList.toggle('active', card.dataset.weapon === currentWeapon);
+            });
+        };
+
+        const closeCustomize = (e) => {
+            if (e) {
+                e.stopPropagation();
+                e.preventDefault();
+            }
+            if (customizeModal) customizeModal.style.display = 'none';
+            if (window.soundEngine) window.soundEngine.playEmptyClick();
+        };
+
+        openCustomizeBtns.forEach(btn => btn.addEventListener('click', openCustomize));
+        if (closeCustomizeBtn) closeCustomizeBtn.addEventListener('click', closeCustomize);
+        if (confirmLoadoutBtn) confirmLoadoutBtn.addEventListener('click', closeCustomize);
+
+        // Weapon card selection in modal
+        const weaponCards = document.querySelectorAll('#customize-modal .weapon-card');
+        weaponCards.forEach(card => {
+            card.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const weapon = card.dataset.weapon;
+                if (!weapon) return;
+
+                weaponCards.forEach(c => c.classList.remove('active'));
+                card.classList.add('active');
+
+                window.selectedStartingWeapon = weapon;
+                if (classInfo[weapon]) {
+                    if (lobbyClassTitle) lobbyClassTitle.innerText = classInfo[weapon].title;
+                    if (lobbyGunName) lobbyGunName.innerText = classInfo[weapon].name;
+                }
+
+                // If match is active, equip immediately
+                if (window.weaponSystem && window.game && window.game.isGameStarted) {
+                    window.weaponSystem.switchWeapon(weapon);
+                }
+
+                if (window.soundEngine) {
+                    window.soundEngine.resume();
+                    window.soundEngine.playSwitch();
+                }
+            });
+        });
+
+        // --- 2. Developer Contact Modal ---
+        const contactNavBtn = document.getElementById('nav-contact-btn');
+        const contactModal = document.getElementById('contact-modal');
+        const closeContactBtn = document.getElementById('btn-close-contact');
+        const doneContactBtn = document.getElementById('btn-done-contact');
+        const copyEmailBtn = document.getElementById('btn-copy-email-modal');
+
+        const openContact = (e) => {
+            if (e) {
+                e.stopPropagation();
+                e.preventDefault();
+            }
+            if (contactModal) contactModal.style.display = 'flex';
+            if (window.soundEngine) window.soundEngine.playEmptyClick();
+        };
+
+        const closeContact = (e) => {
+            if (e) {
+                e.stopPropagation();
+                e.preventDefault();
+            }
+            if (contactModal) contactModal.style.display = 'none';
+            if (window.soundEngine) window.soundEngine.playEmptyClick();
+        };
+
+        if (contactNavBtn) contactNavBtn.addEventListener('click', openContact);
+        if (closeContactBtn) closeContactBtn.addEventListener('click', closeContact);
+        if (doneContactBtn) doneContactBtn.addEventListener('click', closeContact);
+
+        if (copyEmailBtn) {
+            copyEmailBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const email = 'gurjar.kartik2003@gmail.com';
+                const doCopy = () => {
+                    const originalText = copyEmailBtn.innerHTML;
+                    copyEmailBtn.innerHTML = '✓ Copied!';
+                    copyEmailBtn.style.color = '#00ff88';
+                    copyEmailBtn.style.borderColor = '#00ff88';
+                    if (window.soundEngine) {
+                        window.soundEngine.resume();
+                        window.soundEngine.playHit(false);
+                    }
+                    setTimeout(() => {
+                        copyEmailBtn.innerHTML = originalText;
+                        copyEmailBtn.style.color = '#00ffcc';
+                        copyEmailBtn.style.borderColor = '#00ffcc';
+                    }, 2200);
+                };
+
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                    navigator.clipboard.writeText(email).then(doCopy).catch(() => {
+                        const input = document.createElement('input');
+                        input.value = email;
+                        document.body.appendChild(input);
+                        input.select();
+                        document.execCommand('copy');
+                        document.body.removeChild(input);
+                        doCopy();
+                    });
+                } else {
+                    const input = document.createElement('input');
+                    input.value = email;
+                    document.body.appendChild(input);
+                    input.select();
+                    document.execCommand('copy');
+                    document.body.removeChild(input);
+                    doCopy();
+                }
+            });
+        }
+
+        // --- 3. Persistent Background Music Toggle ---
+        const musicToggleBtn = document.getElementById('btn-music-toggle');
+        if (musicToggleBtn) {
+            const isMuted = (typeof localStorage !== 'undefined') && localStorage.getItem('fps_striker_music_muted') === 'true';
+            if (isMuted) {
+                musicToggleBtn.innerHTML = '🔇 MUSIC: OFF';
+                musicToggleBtn.classList.add('muted');
+            }
+
+            musicToggleBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                e.preventDefault();
+                if (window.soundEngine) {
+                    window.soundEngine.resume();
+                    const nowMuted = window.soundEngine.toggleMusicMute();
+                    musicToggleBtn.innerHTML = nowMuted ? '🔇 MUSIC: OFF' : '🎵 MUSIC: ON';
+                    musicToggleBtn.classList.toggle('muted', nowMuted);
+                }
+            });
+        }
+
+        // Close modals on Escape or clicking backdrop
+        window.addEventListener('keydown', (e) => {
+            if (e.code === 'Escape') {
+                if (customizeModal && customizeModal.style.display === 'flex') {
+                    closeCustomize();
+                }
+                if (contactModal && contactModal.style.display === 'flex') {
+                    closeContact();
+                }
+            }
+        });
+
+        [customizeModal, contactModal].forEach(modal => {
+            if (modal) {
+                modal.addEventListener('click', (e) => {
+                    if (e.target === modal) {
+                        modal.style.display = 'none';
+                        if (window.soundEngine) window.soundEngine.playEmptyClick();
+                    }
+                });
+            }
+        });
+
+        // --- 4. Extra Lobby Action Buttons (Ranked, Host, Find, Custom) ---
+        const lobbyButtons = [
+            document.getElementById('btn-ranked'),
+            document.getElementById('btn-host'),
+            document.getElementById('btn-find'),
+            document.getElementById('btn-custom')
+        ].filter(Boolean);
+
+        lobbyButtons.forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                if (window.soundEngine) {
+                    window.soundEngine.resume();
+                    window.soundEngine.playShoot('revolver');
+                }
+                // Launch match
+                const startBtn = document.getElementById('btn-start-game');
+                if (startBtn) startBtn.click();
+            });
+        });
+    }
+
     startMatchTimer() {
         if (this.timerInterval) clearInterval(this.timerInterval);
         this.timerInterval = setInterval(() => {
@@ -267,6 +494,11 @@ class UIManager {
         if (this.scoreboardModal) {
             this.scoreboardModal.style.display = 'flex';
         }
+
+        // Restore energetic lobby BGM during post-match scoreboard
+        if (window.soundEngine) {
+            window.soundEngine.duckMusic(false);
+        }
     }
 
     startNewMatch() {
@@ -280,6 +512,11 @@ class UIManager {
 
         if (this.scoreboardModal) {
             this.scoreboardModal.style.display = 'none';
+        }
+
+        // Duck music during active gameplay
+        if (window.soundEngine) {
+            window.soundEngine.duckMusic(true);
         }
 
         // Reset player stats & respawn

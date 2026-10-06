@@ -121,7 +121,11 @@ class FPSStrikerGame {
         const startGame = () => {
             this.isGameStarted = true;
             if (window.game) window.game.isGameStarted = true;
-            if (window.soundEngine) window.soundEngine.resume();
+            if (window.soundEngine) {
+                window.soundEngine.resume();
+                // Duck music by ~80-85% during active gameplay
+                window.soundEngine.duckMusic(true);
+            }
             if (startMenu) startMenu.style.display = 'none';
             if (hud) hud.style.display = 'block';
             if (this.lobbyPreviewCharacter) this.lobbyPreviewCharacter.visible = false;
@@ -133,6 +137,9 @@ class FPSStrikerGame {
             }
             if (this.weapons) {
                 this.weapons.resetAmmo();
+                if (window.selectedStartingWeapon) {
+                    this.weapons.switchWeapon(window.selectedStartingWeapon);
+                }
             }
             if (this.loot) {
                 this.loot.clearAllDrops();
@@ -148,6 +155,26 @@ class FPSStrikerGame {
 
         const quickMatchBtn = document.getElementById('btn-quick-match');
         if (quickMatchBtn) quickMatchBtn.addEventListener('click', startGame);
+
+        // Auto-start Lobby BGM directly on initial load & reload
+        if (window.soundEngine && !this.isGameStarted) {
+            window.soundEngine.resume();
+            if (!window.soundEngine.isMusicPlaying) {
+                window.soundEngine.startMusic();
+            }
+        }
+
+        const resumeAudioIfIdle = () => {
+            if (window.soundEngine) {
+                window.soundEngine.resume();
+                if (!window.soundEngine.isMusicPlaying && !this.isGameStarted) {
+                    window.soundEngine.startMusic();
+                }
+            }
+        };
+        ['mousemove', 'pointermove', 'touchstart', 'wheel', 'keydown', 'pointerdown', 'focus'].forEach(evt => {
+            window.addEventListener(evt, resumeAudioIfIdle, { once: true, passive: true });
+        });
 
         // 8. Start Loop
         this.animate();

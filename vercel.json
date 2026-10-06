@@ -1,6 +1,16 @@
 {
   "version": 2,
   "cleanUrls": true,
+  "rewrites": [
+    { "source": "/favicon.ico", "destination": "/assets/favicons/favicon.ico" },
+    { "source": "/favicon.svg", "destination": "/assets/favicons/favicon.svg" },
+    { "source": "/site.webmanifest", "destination": "/assets/favicons/site.webmanifest" },
+    { "source": "/apple-touch-icon.png", "destination": "/assets/favicons/apple-touch-icon.png" },
+    { "source": "/favicon-16x16.png", "destination": "/assets/favicons/favicon-16x16.png" },
+    { "source": "/favicon-32x32.png", "destination": "/assets/favicons/favicon-32x32.png" },
+    { "source": "/android-chrome-192x192.png", "destination": "/assets/favicons/android-chrome-192x192.png" },
+    { "source": "/android-chrome-512x512.png", "destination": "/assets/favicons/android-chrome-512x512.png" }
+  ],
   "headers": [
     {
       "source": "/assets/(.*)",

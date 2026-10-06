@@ -11,6 +11,17 @@ class Handler(http.server.SimpleHTTPRequestHandler):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, directory=DIRECTORY, **kwargs)
 
+    def translate_path(self, path):
+        # Route root requests for favicons/manifest to assets/favicons
+        clean_path = path.split('?', 1)[0].split('#', 1)[0]
+        if clean_path in [
+            '/favicon.ico', '/favicon.svg', '/site.webmanifest',
+            '/apple-touch-icon.png', '/favicon-16x16.png', '/favicon-32x32.png',
+            '/android-chrome-192x192.png', '/android-chrome-512x512.png'
+        ]:
+            path = '/assets/favicons' + clean_path
+        return super().translate_path(path)
+
     def end_headers(self):
         self.send_header('Cache-Control', 'no-cache, no-store, must-revalidate')
         self.send_header('Pragma', 'no-cache')

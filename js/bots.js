@@ -175,6 +175,7 @@ class Bot {
         this.hopCooldownBase = cfg.hopCooldownBase;
         this.spreadBase = cfg.spreadBase;
         this.targetMemory = cfg.targetMemory;
+        this.damageMultiplier = 0.70; // 30% damage reduction across all archetypes
 
         // Kinematics
         this.position = new THREE.Vector3();
@@ -422,7 +423,8 @@ class Bot {
 
     spawn() {
         const spawns = this.map.spawnPoints;
-        const sp = spawns[Math.floor(Math.random() * spawns.length)];
+        // Distribute bots evenly across all map quadrants at spawn to avoid clustering
+        const sp = spawns[this.id % spawns.length];
         this.position.set(sp.x, sp.y, sp.z);
 
         this.map.resolvePenetration(this.position, this.radius, this.height);
@@ -1244,7 +1246,9 @@ class Bot {
             const hitDistance = _closestPoint.distanceTo(_playerCenter);
 
             if (hitDistance <= playerRadius) {
-                const baseDmg = 11 + Math.floor(Math.random() * 5);
+                // Scaled down by exactly 30% across all archetypes for balanced arcade accessibility
+                const rawDmg = 11 + Math.floor(Math.random() * 5);
+                const baseDmg = Math.max(1, Math.round(rawDmg * (this.damageMultiplier || 0.70)));
                 player.takeDamage(baseDmg, this.position);
             }
         }
@@ -1263,12 +1267,18 @@ class BotManager {
         this.cameraFrustum = new THREE.Frustum();
         this.projScreenMatrix = new THREE.Matrix4();
 
+        // Doubled bot population (10 concurrent bots across all archetypes)
         this.botTemplates = [
             { id: 0, name: 'Guest_1', archetype: 'HUNTER', roleTitle: 'Hunter' },
             { id: 1, name: 'Player_4', archetype: 'FLANKER', roleTitle: 'Flanker' },
             { id: 2, name: 'Guest_2', archetype: 'PATROLLER', roleTitle: 'Patroller' },
             { id: 3, name: 'Player_5', archetype: 'CAMPER', roleTitle: 'Camper' },
-            { id: 4, name: 'Guest_3', archetype: 'SURVIVOR', roleTitle: 'Survivor' }
+            { id: 4, name: 'Guest_3', archetype: 'SURVIVOR', roleTitle: 'Survivor' },
+            { id: 5, name: 'Guest_6', archetype: 'HUNTER', roleTitle: 'Hunter' },
+            { id: 6, name: 'Ghost_8', archetype: 'FLANKER', roleTitle: 'Flanker' },
+            { id: 7, name: 'Viper_9', archetype: 'PATROLLER', roleTitle: 'Patroller' },
+            { id: 8, name: 'Apex_11', archetype: 'CAMPER', roleTitle: 'Camper' },
+            { id: 9, name: 'Striker_7', archetype: 'SURVIVOR', roleTitle: 'Survivor' }
         ];
 
         this.initBots();

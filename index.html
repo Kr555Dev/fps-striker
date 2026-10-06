@@ -15,12 +15,12 @@
     <link rel="canonical" href="https://fpsstriker.com/">
 
     <!-- Favicon & Touch Icons -->
-    <link rel="icon" type="image/x-icon" href="/favicon.ico">
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
-    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
-    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
-    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
-    <link rel="manifest" href="/site.webmanifest">
+    <link rel="icon" type="image/x-icon" href="./assets/favicons/favicon.ico">
+    <link rel="icon" type="image/svg+xml" href="./assets/favicons/favicon.svg">
+    <link rel="icon" type="image/png" sizes="32x32" href="./assets/favicons/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="./assets/favicons/favicon-16x16.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="./assets/favicons/apple-touch-icon.png">
+    <link rel="manifest" href="./assets/favicons/site.webmanifest">
     <meta name="theme-color" content="#00ffcc">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -628,14 +628,15 @@
             <!-- Top Navigation Bar -->
             <div class="lobby-top-bar">
                 <div class="top-nav-left">
-                    <a href="#guide-section" class="nav-item">📖 GUIDE &amp; INFO</a>
-                    <a href="#faq-section" class="nav-item">❓ FAQ</a>
-                    <a href="/about.html" class="nav-item">ℹ️ ABOUT US</a>
+                    <a href="#guide-section" class="nav-item" id="nav-guide">📖 GUIDE &amp; INFO</a>
+                    <a href="#faq-section" class="nav-item" id="nav-faq">❓ FAQ</a>
+                    <a href="about.html" class="nav-item">ℹ️ ABOUT US</a>
                 </div>
                 <div class="top-nav-right">
-                    <a href="/privacy-policy.html" class="nav-item">🛡️ PRIVACY</a>
-                    <a href="/terms.html" class="nav-item">⚖️ TERMS</a>
-                    <a href="/contact.html" class="nav-item">✉️ CONTACT</a>
+                    <button id="btn-music-toggle" class="nav-item music-toggle-btn" title="Toggle Background Music">🎵 MUSIC: ON</button>
+                    <a href="privacy-policy.html" class="nav-item">🛡️ PRIVACY</a>
+                    <a href="terms.html" class="nav-item">⚖️ TERMS</a>
+                    <button id="nav-contact-btn" class="nav-item" style="background:none; border:none; padding:0; font:inherit; color:inherit; cursor:pointer;">✉️ CONTACT</button>
                 </div>
             </div>
 
@@ -658,10 +659,10 @@
 
             <!-- Bottom Customization Card -->
             <div class="lobby-bottom-bar">
-                <div class="class-card">
-                    <div class="class-class-title">Commando</div>
-                    <div class="class-gun-name">Assault Rifle</div>
-                    <div class="customize-tag">Customize ✎</div>
+                <div class="class-card" id="btn-open-customize" title="Customize Weapon &amp; Loadout">
+                    <div class="class-class-title" id="lobby-class-title">Commando</div>
+                    <div class="class-gun-name" id="lobby-gun-name">Assault Rifle</div>
+                    <div class="customize-tag" id="btn-customize-tag">Customize ✎</div>
                 </div>
                 <div class="server-info">
                     Now Playing: <b>Team Deathmatch on Outpost</b> &bull; Ping: <span style="color:#00ff88;">29ms</span>
@@ -671,10 +672,10 @@
             <!-- Right Action Menu Buttons -->
             <div class="lobby-right-menu">
                 <button class="lobby-btn quick-match" id="btn-quick-match">⚡ QUICK MATCH</button>
-                <button class="lobby-btn ranked" onclick="document.getElementById('btn-start-game').click();">🎖️ RANKED</button>
-                <button class="lobby-btn standard" onclick="document.getElementById('btn-start-game').click();">🏠 HOST GAME</button>
-                <button class="lobby-btn standard" onclick="document.getElementById('btn-start-game').click();">🔍 FIND GAME</button>
-                <button class="lobby-btn custom" onclick="document.getElementById('btn-start-game').click();">🎮 CUSTOM GAMES</button>
+                <button class="lobby-btn ranked" id="btn-ranked">🎖️ RANKED</button>
+                <button class="lobby-btn standard" id="btn-host">🏠 HOST GAME</button>
+                <button class="lobby-btn standard" id="btn-find">🔍 FIND GAME</button>
+                <button class="lobby-btn custom" id="btn-custom">🎮 CUSTOM GAMES</button>
             </div>
         </div>
 
@@ -984,8 +985,12 @@
                     <input type="range" id="setting-sens" class="setting-slider" min="0.5" max="6.0" step="0.1" value="2.2">
                 </div>
                 <div class="setting-row">
-                    <span>Audio Volume: <b id="setting-vol-val" style="color:#00ffcc;">70%</b></span>
+                    <span>Master Audio: <b id="setting-vol-val" style="color:#00ffcc;">70%</b></span>
                     <input type="range" id="setting-vol" class="setting-slider" min="0" max="100" value="70">
+                </div>
+                <div class="setting-row">
+                    <span>Lobby BGM (Music): <b id="setting-bgm-val" style="color:#00ffcc;">38%</b></span>
+                    <input type="range" id="setting-bgm" class="setting-slider" min="0" max="100" value="38">
                 </div>
             </div>
 
@@ -1019,12 +1024,12 @@
 
     <!-- Death / Respawn Screen -->
     <div id="death-screen" class="overlay-screen" style="display: none;">
-        <div class="screen-card" style="border-color: #ff2255; box-shadow: 0 0 35px rgba(255, 34, 85, 0.4);">
-            <h2 class="game-title" style="background: linear-gradient(135deg, #ff2255, #ffaa00); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
+        <div class="screen-card" style="border: 1px solid #ff2255; box-shadow: 0 16px 40px rgba(0, 0, 0, 0.8);">
+            <h2 class="game-title" style="color: #ff2255;">
                 ELIMINATED
             </h2>
             <p class="game-subtitle" style="margin-bottom: 20px;">Get back into the fight!</p>
-            <button id="btn-respawn" class="action-btn" style="background: linear-gradient(135deg, #ff2255, #ff7700);">
+            <button id="btn-respawn" class="action-btn" style="background: #ff2255; border-color: #ff2255; color: #ffffff;">
                 RESPAWN [SPACE]
             </button>
         </div>
@@ -1083,6 +1088,144 @@
                 </button>
                 <button id="btn-dismiss-match" class="action-btn dismiss-btn">
                     <span>CONTINUE PLAYING</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Weapon Customizer & Loadout Modal -->
+    <div id="customize-modal" class="striker-modal-backdrop" style="display: none;">
+        <div class="striker-modal-card loadout-modal-card">
+            <button id="btn-close-customize" class="modal-close-btn" title="Close">✕</button>
+            <div class="striker-modal-header">
+                <div class="modal-title-group">
+                    <span class="modal-tag">TACTICAL ARSENAL // LOADOUT CONFIG</span>
+                    <h2 class="modal-title" style="color: #ffffff; font-family: 'Teko', sans-serif; font-size: 32px; letter-spacing: 2px;">CHOOSE PRIMARY WEAPON</h2>
+                </div>
+            </div>
+            
+            <div class="weapon-select-grid">
+                <!-- AR-47 -->
+                <div class="weapon-card active" data-weapon="ar" data-role="Commando" data-name="Assault Rifle">
+                    <div class="weapon-card-header">
+                        <span class="weapon-badge">COMMANDO</span>
+                        <span class="weapon-key-badge">[1]</span>
+                    </div>
+                    <h3 class="weapon-card-name">AR-47 ASSAULT RIFLE</h3>
+                    <p class="weapon-card-desc">Automatic rifle with balanced ballistics, 30-round mag, and full-auto firemode.</p>
+                    <div class="weapon-stat-bars">
+                        <div class="stat-row"><span>DAMAGE</span><div class="stat-bar"><div class="stat-fill" style="width: 65%;"></div></div></div>
+                        <div class="stat-row"><span>FIRE RATE</span><div class="stat-bar"><div class="stat-fill" style="width: 75%;"></div></div></div>
+                        <div class="stat-row"><span>CAPACITY</span><div class="stat-bar"><div class="stat-fill" style="width: 80%;"></div></div></div>
+                    </div>
+                    <button class="btn-select-weapon">EQUIPPED ✓</button>
+                </div>
+
+                <!-- REVOLVER -->
+                <div class="weapon-card" data-weapon="revolver" data-role="Enforcer" data-name="Heavy Revolver">
+                    <div class="weapon-card-header">
+                        <span class="weapon-badge">ENFORCER</span>
+                        <span class="weapon-key-badge">[2]</span>
+                    </div>
+                    <h3 class="weapon-card-name">.357 HEAVY REVOLVER</h3>
+                    <p class="weapon-card-desc">High-damage heavy handgun with lethal headshots and tactile cylinder recoil.</p>
+                    <div class="weapon-stat-bars">
+                        <div class="stat-row"><span>DAMAGE</span><div class="stat-bar"><div class="stat-fill" style="width: 85%;"></div></div></div>
+                        <div class="stat-row"><span>FIRE RATE</span><div class="stat-bar"><div class="stat-fill" style="width: 40%;"></div></div></div>
+                        <div class="stat-row"><span>CAPACITY</span><div class="stat-bar"><div class="stat-fill" style="width: 25%;"></div></div></div>
+                    </div>
+                    <button class="btn-select-weapon">EQUIP</button>
+                </div>
+
+                <!-- SNIPER -->
+                <div class="weapon-card" data-weapon="sniper" data-role="Marksman" data-name="Sniper Rifle">
+                    <div class="weapon-card-header">
+                        <span class="weapon-badge">MARKSMAN</span>
+                        <span class="weapon-key-badge">[3]</span>
+                    </div>
+                    <h3 class="weapon-card-name">AWM BOLT SNIPER</h3>
+                    <p class="weapon-card-desc">Precision rifle with telescopic optic ADS and devastating 1-shot headshots.</p>
+                    <div class="weapon-stat-bars">
+                        <div class="stat-row"><span>DAMAGE</span><div class="stat-bar"><div class="stat-fill" style="width: 100%;"></div></div></div>
+                        <div class="stat-row"><span>FIRE RATE</span><div class="stat-bar"><div class="stat-fill" style="width: 18%;"></div></div></div>
+                        <div class="stat-row"><span>CAPACITY</span><div class="stat-bar"><div class="stat-fill" style="width: 15%;"></div></div></div>
+                    </div>
+                    <button class="btn-select-weapon">EQUIP</button>
+                </div>
+
+                <!-- SMG -->
+                <div class="weapon-card" data-weapon="smg" data-role="Infiltrator" data-name="Rapid SMG">
+                    <div class="weapon-card-header">
+                        <span class="weapon-badge">INFILTRATOR</span>
+                        <span class="weapon-key-badge">[4]</span>
+                    </div>
+                    <h3 class="weapon-card-name">SMG-9 RAPID</h3>
+                    <p class="weapon-card-desc">Ultra-high cyclic rate of fire engineered for high-mobility slide-hopping combat.</p>
+                    <div class="weapon-stat-bars">
+                        <div class="stat-row"><span>DAMAGE</span><div class="stat-bar"><div class="stat-fill" style="width: 45%;"></div></div></div>
+                        <div class="stat-row"><span>FIRE RATE</span><div class="stat-bar"><div class="stat-fill" style="width: 95%;"></div></div></div>
+                        <div class="stat-row"><span>CAPACITY</span><div class="stat-bar"><div class="stat-fill" style="width: 85%;"></div></div></div>
+                    </div>
+                    <button class="btn-select-weapon">EQUIP</button>
+                </div>
+
+                <!-- SHOTGUN -->
+                <div class="weapon-card" data-weapon="shotgun" data-role="Breacher" data-name="Double Shotgun">
+                    <div class="weapon-card-header">
+                        <span class="weapon-badge">BREACHER</span>
+                        <span class="weapon-key-badge">[5]</span>
+                    </div>
+                    <h3 class="weapon-card-name">12-GAUGE SHOTGUN</h3>
+                    <p class="weapon-card-desc">Break-action shotgun with massive pellet burst spread for close-quarters lethality.</p>
+                    <div class="weapon-stat-bars">
+                        <div class="stat-row"><span>DAMAGE</span><div class="stat-bar"><div class="stat-fill" style="width: 95%;"></div></div></div>
+                        <div class="stat-row"><span>FIRE RATE</span><div class="stat-bar"><div class="stat-fill" style="width: 30%;"></div></div></div>
+                        <div class="stat-row"><span>CAPACITY</span><div class="stat-bar"><div class="stat-fill" style="width: 10%;"></div></div></div>
+                    </div>
+                    <button class="btn-select-weapon">EQUIP</button>
+                </div>
+            </div>
+
+            <div class="striker-modal-footer">
+                <button id="btn-confirm-loadout" class="action-btn" style="font-size: 20px; padding: 10px 28px;">
+                    <span>CONFIRM &amp; CLOSE</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Contact Us Modal -->
+    <div id="contact-modal" class="striker-modal-backdrop" style="display: none;">
+        <div class="striker-modal-card" style="max-width: 520px;">
+            <button id="btn-close-contact" class="modal-close-btn" title="Close">✕</button>
+            <div class="striker-modal-header">
+                <div class="modal-title-group">
+                    <span class="modal-tag">COMMUNICATIONS DISPATCH</span>
+                    <h2 class="modal-title" style="color: #ffffff; font-family: 'Teko', sans-serif; font-size: 32px; letter-spacing: 2px;">CONTACT DEVELOPER</h2>
+                </div>
+            </div>
+            
+            <p style="color: rgba(255,255,255,0.75); font-size: 14px; margin-bottom: 18px; line-height: 1.5;">
+                For player feedback, bugs, tournament inquiries, or business partnerships, reach out directly:
+            </p>
+
+            <div style="background: #111520; border: 1px solid rgba(255,255,255,0.12); border-radius: 6px; padding: 14px 18px; margin-bottom: 20px; display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;">
+                <div>
+                    <span style="font-size: 11px; text-transform: uppercase; color: rgba(255,255,255,0.5); font-weight: 700; letter-spacing: 1px; display: block; margin-bottom: 4px;">Developer Direct Email</span>
+                    <a href="mailto:gurjar.kartik2003@gmail.com" style="color: #00ffcc; font-size: 15px; font-weight: 700; text-decoration: none; font-family: monospace;">gurjar.kartik2003@gmail.com</a>
+                </div>
+                <div style="display: flex; gap: 8px;">
+                    <button id="btn-copy-email-modal" class="action-btn" style="font-size: 14px; padding: 6px 14px; margin-top: 0; background: rgba(0,255,204,0.15); border-color: #00ffcc; color: #00ffcc;">📋 Copy</button>
+                    <a href="mailto:gurjar.kartik2003@gmail.com" class="action-btn" style="font-size: 14px; padding: 6px 14px; margin-top: 0; text-decoration: none;">✉️ Mail</a>
+                </div>
+            </div>
+
+            <div class="striker-modal-footer">
+                <a href="contact.html" class="action-btn dismiss-btn" style="font-size: 18px; text-decoration: none; display: inline-flex; align-items: center;">
+                    <span>OPEN CONTACT PAGE →</span>
+                </a>
+                <button id="btn-done-contact" class="action-btn" style="font-size: 18px;">
+                    <span>CLOSE</span>
                 </button>
             </div>
         </div>

@@ -76,6 +76,19 @@ class SoundEngine {
         this.lowHealthTimer = null;
         this.preloadPromise = null;
 
+        // Procedural Background Music (BGM) Engine State
+        this.musicGain = null;
+        this.musicFilter = null;
+        this.isMusicPlaying = false;
+        this.musicTimer = null;
+        this.musicNextNoteTime = 0;
+        this.musicCurrentStep = 0;
+        this.musicBpm = 126;
+        this.bgmMasterVolume = 0.38;
+        this.bgmDuckedVolume = 0.06;
+        this.bgmDucked = false;
+        this.bgmMuted = (typeof localStorage !== 'undefined' && localStorage.getItem('fps_striker_music_muted') === 'true');
+
         // Auto-init buffer generation immediately
         if (typeof window !== 'undefined') {
             this.init();
@@ -109,6 +122,19 @@ class SoundEngine {
             this.masterCompressor.connect(this.masterGain);
             this.masterGain.connect(this.ctx.destination);
 
+            // 4. Procedural BGM Music Bus (Lobby & In-Game Dynamic Ducking)
+            this.musicGain = this.ctx.createGain();
+            this.musicFilter = this.ctx.createBiquadFilter();
+            this.musicFilter.type = 'lowpass';
+            this.musicFilter.frequency.setValueAtTime(14000, this.ctx.currentTime);
+            this.musicFilter.Q.setValueAtTime(1.0, this.ctx.currentTime);
+
+            const initialMusicVol = this.bgmMuted ? 0.0001 : this.bgmMasterVolume;
+            this.musicGain.gain.setValueAtTime(initialMusicVol, this.ctx.currentTime);
+
+            this.musicFilter.connect(this.musicGain);
+            this.musicGain.connect(this.masterCompressor);
+
             // Pre-calculate shared noise and saturation curves
             this.whiteNoiseBuffer = this.createNoiseBuffer(0.25);
             this.pinkNoiseBuffer = this.createPinkNoiseBuffer(0.25);
@@ -122,6 +148,31 @@ class SoundEngine {
 
             // 2. Pre-render procedural AudioBuffers as backup fallback
             this.preloadPromise = this.generateAllWeaponBuffers();
+
+            // 3. Immediately start lobby background music on initial load & reload
+            if (!this.bgmMuted) {
+                this.startMusic();
+            }
+
+            // Proactively resume AudioContext on page lifecycle or any subtle user presence
+            if (typeof window !== 'undefined') {
+                const autoResumeContext = () => {
+                    this.resume();
+                    if (!this.isMusicPlaying && !this.bgmMuted) {
+                        this.startMusic();
+                    }
+                };
+                if (document.readyState === 'loading') {
+                    document.addEventListener('DOMContentLoaded', autoResumeContext, { once: true });
+                } else {
+                    autoResumeContext();
+                }
+                window.addEventListener('load', autoResumeContext, { once: true });
+                window.addEventListener('pageshow', autoResumeContext);
+                ['mousemove', 'pointermove', 'touchstart', 'wheel', 'keydown', 'pointerdown', 'focus'].forEach(evt => {
+                    window.addEventListener(evt, autoResumeContext, { once: true, passive: true });
+                });
+            }
         } catch (e) {
             console.warn('AudioContext not supported or blocked:', e);
         }
@@ -141,7 +192,7 @@ class SoundEngine {
     resume() {
         if (!this.initialized) this.init();
         if (this.ctx && this.ctx.state === 'suspended') {
-            this.ctx.resume();
+            this.ctx.resume().catch(() => {});
         }
     }
 
@@ -1672,6 +1723,296 @@ class SoundEngine {
             osc.start(n.start);
             osc.stop(n.start + n.dur + 0.01);
         });
+    }
+
+    /* =========================================================
+       PROCEDURAL LOBBY BACKGROUND MUSIC (BGM) & DYNAMIC DUCKING
+       ========================================================= */
+
+    startMusic() {
+        if (!this.initialized) this.init();
+        if (this.isMusicPlaying) return;
+        if (!this.ctx) return;
+        this.resume();
+
+        this.isMusicPlaying = true;
+        this.musicCurrentStep = 0;
+        this.musicNextNoteTime = this.ctx.currentTime + 0.05;
+
+        const targetVol = this.bgmMuted ? 0.0001 : (this.bgmDucked ? this.bgmDuckedVolume : this.bgmMasterVolume);
+        if (this.musicGain) {
+            this.musicGain.gain.setValueAtTime(targetVol, this.ctx.currentTime);
+        }
+
+        if (this.musicTimer) clearInterval(this.musicTimer);
+        this.musicTimer = setInterval(() => {
+            if (!this.isMusicPlaying || !this.ctx) return;
+            const lookahead = 0.15;
+            const secondsPer16th = (60 / this.musicBpm) / 4;
+
+            while (this.musicNextNoteTime < this.ctx.currentTime + lookahead) {
+                this.scheduleMusicStep(this.musicCurrentStep, this.musicNextNoteTime);
+                this.musicNextNoteTime += secondsPer16th;
+                this.musicCurrentStep = (this.musicCurrentStep + 1) % 64;
+            }
+        }, 40);
+    }
+
+    stopMusic() {
+        this.isMusicPlaying = false;
+        if (this.musicTimer) {
+            clearInterval(this.musicTimer);
+            this.musicTimer = null;
+        }
+        if (this.musicGain && this.ctx) {
+            this.musicGain.gain.setValueAtTime(0.0001, this.ctx.currentTime);
+        }
+    }
+
+    duckMusic(isDucked = true) {
+        if (!this.ctx || !this.musicGain) return;
+        this.bgmDucked = isDucked;
+        const now = this.ctx.currentTime;
+        const targetVol = this.bgmMuted ? 0.0001 : (isDucked ? this.bgmDuckedVolume : this.bgmMasterVolume);
+        const targetFilter = isDucked ? 750 : 14000;
+        const duration = isDucked ? 1.2 : 1.0;
+
+        try {
+            this.musicGain.gain.cancelScheduledValues(now);
+            this.musicGain.gain.setValueAtTime(Math.max(0.0001, this.musicGain.gain.value), now);
+            this.musicGain.gain.linearRampToValueAtTime(Math.max(0.0001, targetVol), now + duration);
+
+            if (this.musicFilter) {
+                this.musicFilter.frequency.cancelScheduledValues(now);
+                this.musicFilter.frequency.setValueAtTime(Math.max(200, this.musicFilter.frequency.value), now);
+                this.musicFilter.frequency.exponentialRampToValueAtTime(targetFilter, now + duration);
+            }
+        } catch (e) {
+            this.musicGain.gain.value = targetVol;
+            if (this.musicFilter) this.musicFilter.frequency.value = targetFilter;
+        }
+    }
+
+    toggleMusicMute() {
+        this.bgmMuted = !this.bgmMuted;
+        if (typeof localStorage !== 'undefined') {
+            localStorage.setItem('fps_striker_music_muted', String(this.bgmMuted));
+        }
+        if (!this.isMusicPlaying && !this.bgmMuted) {
+            this.startMusic();
+        }
+        this.duckMusic(this.bgmDucked);
+        return this.bgmMuted;
+    }
+
+    setMusicVolume(vol) {
+        this.bgmMasterVolume = Math.max(0, Math.min(1, vol));
+        if (!this.bgmMuted) {
+            this.duckMusic(this.bgmDucked);
+        }
+    }
+
+    scheduleMusicStep(step, time) {
+        if (!this.ctx || !this.musicFilter) return;
+
+        // 1. Kick Drum (tight 4-on-the-floor + syncopation)
+        if (step % 4 === 0 || step === 14 || step === 30 || step === 46 || step === 62) {
+            const kickOsc = this.ctx.createOscillator();
+            const kickGain = this.ctx.createGain();
+
+            kickOsc.type = 'sine';
+            kickOsc.frequency.setValueAtTime(140, time);
+            kickOsc.frequency.exponentialRampToValueAtTime(40, time + 0.08);
+
+            kickGain.gain.setValueAtTime(0.40, time);
+            kickGain.gain.exponentialRampToValueAtTime(0.001, time + 0.12);
+
+            kickOsc.connect(kickGain);
+            kickGain.connect(this.musicFilter);
+
+            kickOsc.start(time);
+            kickOsc.stop(time + 0.13);
+        }
+
+        // 2. Snare / Clap (Beats 2 and 4)
+        if (step % 8 === 4) {
+            if (this.whiteNoiseBuffer) {
+                const noise = this.ctx.createBufferSource();
+                noise.buffer = this.whiteNoiseBuffer;
+                const filter = this.ctx.createBiquadFilter();
+                filter.type = 'bandpass';
+                filter.frequency.setValueAtTime(1300, time);
+                filter.Q.setValueAtTime(1.8, time);
+
+                const gain = this.ctx.createGain();
+                gain.gain.setValueAtTime(0.26, time);
+                gain.gain.exponentialRampToValueAtTime(0.001, time + 0.13);
+
+                noise.connect(filter);
+                filter.connect(gain);
+                gain.connect(this.musicFilter);
+
+                noise.start(time);
+                noise.stop(time + 0.14);
+            }
+
+            const tone = this.ctx.createOscillator();
+            const tGain = this.ctx.createGain();
+            tone.type = 'triangle';
+            tone.frequency.setValueAtTime(185, time);
+            tone.frequency.exponentialRampToValueAtTime(75, time + 0.06);
+
+            tGain.gain.setValueAtTime(0.18, time);
+            tGain.gain.exponentialRampToValueAtTime(0.001, time + 0.07);
+
+            tone.connect(tGain);
+            tGain.connect(this.musicFilter);
+
+            tone.start(time);
+            tone.stop(time + 0.08);
+        }
+
+        // 3. Hi-Hats (16th notes with accent and open hat)
+        if (this.whiteNoiseBuffer) {
+            const isOpen = (step % 8 === 6);
+            const isAccented = (step % 2 === 1);
+            const hat = this.ctx.createBufferSource();
+            hat.buffer = this.whiteNoiseBuffer;
+
+            const filter = this.ctx.createBiquadFilter();
+            filter.type = 'highpass';
+            filter.frequency.setValueAtTime(7400, time);
+
+            const gain = this.ctx.createGain();
+            const hatVol = isOpen ? 0.18 : (isAccented ? 0.13 : 0.08);
+            const hatDur = isOpen ? 0.14 : 0.035;
+
+            gain.gain.setValueAtTime(hatVol, time);
+            gain.gain.exponentialRampToValueAtTime(0.001, time + hatDur);
+
+            hat.connect(filter);
+            filter.connect(gain);
+            gain.connect(this.musicFilter);
+
+            hat.start(time);
+            hat.stop(time + hatDur + 0.01);
+        }
+
+        // 4. Driving Synthwave Bassline (D minor / Bb / C / A cadence)
+        const bar = Math.floor(step / 16);
+        let rootNote = 73.42; // D2
+        if (bar === 1) rootNote = 58.27; // Bb1
+        else if (bar === 2) rootNote = 65.41; // C2
+        else if (bar === 3) rootNote = (step % 8 < 4) ? 55.00 : 65.41; // A1 -> C2
+
+        const isUpbeatPulse = (step % 2 === 1);
+        const noteFreq = isUpbeatPulse ? rootNote * 2 : rootNote;
+
+        const bOsc = this.ctx.createOscillator();
+        const bFilt = this.ctx.createBiquadFilter();
+        const bGain = this.ctx.createGain();
+
+        bOsc.type = 'sawtooth';
+        bOsc.frequency.setValueAtTime(noteFreq, time);
+
+        bFilt.type = 'lowpass';
+        bFilt.frequency.setValueAtTime(isUpbeatPulse ? 850 : 600, time);
+        bFilt.frequency.exponentialRampToValueAtTime(240, time + 0.10);
+        bFilt.Q.setValueAtTime(2.2, time);
+
+        bGain.gain.setValueAtTime(0.24, time);
+        bGain.gain.exponentialRampToValueAtTime(0.001, time + 0.11);
+
+        bOsc.connect(bFilt);
+        bFilt.connect(bGain);
+        bGain.connect(this.musicFilter);
+
+        bOsc.start(time);
+        bOsc.stop(time + 0.12);
+
+        // 5. Arpeggiated Neon Synth Lead (Catchy electronic hook)
+        const melody = [
+            // Bar 1: D minor
+            293.66, 0, 349.23, 0, 440.00, 0, 587.33, 0,
+            440.00, 0, 349.23, 0, 392.00, 0, 440.00, 0,
+            // Bar 2: Bb major
+            466.16, 0, 587.33, 0, 698.46, 0, 587.33, 0,
+            466.16, 0, 440.00, 0, 392.00, 0, 349.23, 0,
+            // Bar 3: C major
+            523.25, 0, 329.63, 0, 392.00, 0, 523.25, 0,
+            392.00, 0, 349.23, 0, 392.00, 0, 523.25, 0,
+            // Bar 4: A minor / resolve
+            440.00, 0, 523.25, 0, 659.25, 0, 587.33, 0,
+            440.00, 0, 349.23, 0, 293.66, 0, 329.63, 0
+        ];
+
+        const leadPitch = melody[step];
+        if (leadPitch > 0) {
+            const mOsc = this.ctx.createOscillator();
+            const mSub = this.ctx.createOscillator();
+            const mFilter = this.ctx.createBiquadFilter();
+            const mGain = this.ctx.createGain();
+
+            mOsc.type = 'triangle';
+            mOsc.frequency.setValueAtTime(leadPitch, time);
+
+            mSub.type = 'square';
+            mSub.frequency.setValueAtTime(leadPitch, time);
+
+            mFilter.type = 'lowpass';
+            mFilter.frequency.setValueAtTime(2600, time);
+            mFilter.frequency.exponentialRampToValueAtTime(750, time + 0.14);
+            mFilter.Q.setValueAtTime(2.2, time);
+
+            mGain.gain.setValueAtTime(0.001, time);
+            mGain.gain.linearRampToValueAtTime(0.16, time + 0.01);
+            mGain.gain.exponentialRampToValueAtTime(0.001, time + 0.14);
+
+            const subGain = this.ctx.createGain();
+            subGain.gain.setValueAtTime(0.04, time);
+
+            mOsc.connect(mFilter);
+            mSub.connect(subGain);
+            subGain.connect(mFilter);
+            mFilter.connect(mGain);
+            mGain.connect(this.musicFilter);
+
+            mOsc.start(time);
+            mSub.start(time);
+            mOsc.stop(time + 0.15);
+            mSub.stop(time + 0.15);
+        }
+
+        // 6. Atmospheric Warm Synth Pad (Bar transitions)
+        if (step % 16 === 0) {
+            const padRoot = [146.83, 116.54, 130.81, 110.00][Math.floor(step / 16)];
+            const pOsc1 = this.ctx.createOscillator();
+            const pOsc2 = this.ctx.createOscillator();
+            const pFilt = this.ctx.createBiquadFilter();
+            const pGain = this.ctx.createGain();
+
+            pOsc1.type = 'sawtooth';
+            pOsc2.type = 'triangle';
+            pOsc1.frequency.setValueAtTime(padRoot, time);
+            pOsc2.frequency.setValueAtTime(padRoot * 1.5, time);
+
+            pFilt.type = 'lowpass';
+            pFilt.frequency.setValueAtTime(900, time);
+
+            pGain.gain.setValueAtTime(0.001, time);
+            pGain.gain.linearRampToValueAtTime(0.08, time + 0.25);
+            pGain.gain.exponentialRampToValueAtTime(0.001, time + 1.8);
+
+            pOsc1.connect(pFilt);
+            pOsc2.connect(pFilt);
+            pFilt.connect(pGain);
+            pGain.connect(this.musicFilter);
+
+            pOsc1.start(time);
+            pOsc2.start(time);
+            pOsc1.stop(time + 1.9);
+            pOsc2.stop(time + 1.9);
+        }
     }
 }
 
