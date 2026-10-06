@@ -1,7 +1,7 @@
 {
-  "name": "krunker-arena-3d",
+  "name": "fps-striker",
   "version": "1.0.0",
-  "description": "High-performance 3D browser-based voxel First-Person Shooter powered by Three.js and procedural Web Audio API synthesis.",
+  "description": "FPS Striker - High-performance 3D browser-based voxel First-Person Shooter powered by Three.js and procedural Web Audio API synthesis.",
   "main": "js/main.js",
   "scripts": {
     "start": "python serve.py",
@@ -10,8 +10,9 @@
     "test": "python test_all_requirements.py"
   },
   "keywords": [
-    "krunker",
+    "fps-striker",
     "fps",
+    "shooter",
     "threejs",
     "webgl",
     "voxel",
@@ -19,7 +20,7 @@
     "first-person-shooter",
     "procedural-audio"
   ],
-  "author": "Antigravity Engineering Team",
+  "author": "FPS Striker Team",
   "license": "MIT",
   "devDependencies": {
     "serve": "^14.2.4"

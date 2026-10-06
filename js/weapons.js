@@ -1,11 +1,19 @@
 /**
- * Krunker Realistic Tactical Weapons System & 3D Viewmodels
+ * FPS Striker Realistic Tactical Weapons System & 3D Viewmodels
  * Enhanced with:
  * - High-resolution generated textures for ALL 4 WEAPONS (AR, Sniper, SMG, Revolver)
  * - Mouse Wheel scroll weapon switching
  * - Multi-stage tactical reload animations with camera dips
  * - Ejected spinning brass cartridges
  */
+
+// Module-level scratch objects to guarantee zero GC allocations in render/raycast loops
+const _raycaster = new THREE.Raycaster();
+const _screenCoords = new THREE.Vector2();
+const _muzzleWorld = new THREE.Vector3();
+const _tempVec = new THREE.Vector3();
+const _wallNormal = new THREE.Vector3();
+const _camWorld = new THREE.Vector3();
 
 class WeaponSystem {
     constructor(camera, scene, player, audio, particles) {
@@ -23,13 +31,15 @@ class WeaponSystem {
             ar: {
                 id: 'ar',
                 name: 'Assault Rifle',
-                class: 'Triggerman',
+                class: 'Commando',
                 magSize: 30,
-                maxReserve: 120,
+                maxReserve: 90,
+                initialClip: 30,
+                initialReserve: 90,
                 fireRate: 110,
                 auto: true,
-                damage: 26,
-                headshotMult: 1.5,
+                damage: 28,
+                headshotMult: 1.90,
                 recoilPitch: 0.038,
                 recoilKick: 0.045,
                 spread: 0.009,
@@ -41,13 +51,15 @@ class WeaponSystem {
             sniper: {
                 id: 'sniper',
                 name: 'Sniper Rifle',
-                class: 'Hunter',
+                class: 'Marksman',
                 magSize: 3,
-                maxReserve: 21,
+                maxReserve: 6,
+                initialClip: 3,
+                initialReserve: 6,
                 fireRate: 850,
                 auto: false,
-                damage: 100,
-                headshotMult: 1.5,
+                damage: 105,
+                headshotMult: 1.80,
                 recoilPitch: 0.11,
                 recoilKick: 0.11,
                 spread: 0.03,
@@ -59,9 +71,11 @@ class WeaponSystem {
             smg: {
                 id: 'smg',
                 name: 'SMG',
-                class: 'Run N Gun',
+                class: 'Skirmisher',
                 magSize: 34,
                 maxReserve: 136,
+                initialClip: 34,
+                initialReserve: 136,
                 fireRate: 72,
                 auto: true,
                 damage: 18,
@@ -77,13 +91,15 @@ class WeaponSystem {
             revolver: {
                 id: 'revolver',
                 name: 'Revolver',
-                class: 'Detective',
+                class: 'Enforcer',
                 magSize: 6,
-                maxReserve: 36,
+                maxReserve: 12,
+                initialClip: 6,
+                initialReserve: 12,
                 fireRate: 300,
                 auto: false,
-                damage: 66,
-                headshotMult: 1.5,
+                damage: 68,
+                headshotMult: 1.60,
                 recoilPitch: 0.075,
                 recoilKick: 0.065,
                 spread: 0.008,
@@ -91,19 +107,41 @@ class WeaponSystem {
                 hipPos: new THREE.Vector3(0.15, -0.17, -0.34),
                 adsPos: new THREE.Vector3(0.0, -0.112, -0.26),
                 reloadTime: 1.6
+            },
+            shotgun: {
+                id: 'shotgun',
+                name: 'Double-Barrel Shotgun',
+                class: 'Breacher',
+                magSize: 2,
+                maxReserve: 14,
+                initialClip: 2,
+                initialReserve: 14,
+                fireRate: 350,
+                auto: false,
+                damage: 14,
+                headshotMult: 2.0,
+                recoilPitch: 0.14,
+                recoilKick: 0.13,
+                spread: 0.048,
+                adsSpread: 0.024,
+                adsFov: 65,
+                hipPos: new THREE.Vector3(0.18, -0.19, -0.42),
+                adsPos: new THREE.Vector3(0.0, -0.125, -0.30),
+                reloadTime: 1.8
             }
         };
 
-        this.weaponKeys = ['ar', 'sniper', 'smg', 'revolver'];
+        this.weaponKeys = ['ar', 'revolver', 'sniper', 'smg', 'shotgun'];
         this.currentWeaponIndex = 0;
         this.currentWeaponKey = 'ar';
         this.currentWeapon = this.weapons.ar;
 
         this.ammoState = {
-            ar: { clip: 30, reserve: 120 },
-            sniper: { clip: 3, reserve: 21 },
+            ar: { clip: 30, reserve: 90 },
+            revolver: { clip: 6, reserve: 12 },
+            sniper: { clip: 3, reserve: 6 },
             smg: { clip: 34, reserve: 136 },
-            revolver: { clip: 6, reserve: 36 }
+            shotgun: { clip: 2, reserve: 14 }
         };
 
         // Recoil & Sway
@@ -179,13 +217,14 @@ class WeaponSystem {
             if (e.code === 'Digit2') this.switchWeapon('revolver');
             if (e.code === 'Digit3') this.switchWeapon('sniper');
             if (e.code === 'Digit4') this.switchWeapon('smg');
+            if (e.code === 'Digit5') this.switchWeapon('shotgun');
         });
     }
 
     buildAllViewmodels() {
         const tex = window.textureGen;
 
-        // Stylized materials matching Krunker aesthetic
+        // Stylized materials matching tactical FPS aesthetic
         const akReceiverMat = new THREE.MeshLambertMaterial({
             map: tex.getAKReceiver ? tex.getAKReceiver() : null,
             color: 0x33373e
@@ -231,9 +270,9 @@ class WeaponSystem {
         const cuffMat = new THREE.MeshLambertMaterial({ color: 0xf0f0f5 });
         const skinMat = new THREE.MeshLambertMaterial({ color: 0xdfa07a });
 
-        // Helper: Build Krunker Stylized Voxel Arms
+        // Helper: Build Striker Stylized Voxel Arms
         // Redesigned as contiguous, unbroken volumetric limbs with zero visible gaps
-        const buildKrunkerArms = (type = 'ar') => {
+        const buildStrikerArms = (type = 'ar') => {
             const armRoot = new THREE.Group();
 
             // Builder for a solid, contiguous voxel limb (Forearm Sleeve -> Cuff -> Wrist -> Hand)
@@ -298,7 +337,7 @@ class WeaponSystem {
 
             // Weapon-specific limb configurations
             if (type === 'ar') {
-                // --- AR: Triggerman AK-47 ---
+                // --- AR: Commando AK-47 ---
                 // Right Arm: holds pistol grip
                 const rShoulder = new THREE.Vector3(0.14, -0.09, 0.20);
                 const rWrist = new THREE.Vector3(0.035, -0.055, 0.04);
@@ -344,7 +383,7 @@ class WeaponSystem {
                 armRoot.add(leftLimb.limbGroup);
 
             } else if (type === 'sniper') {
-                // --- Sniper: Hunter Bolt-Action Rifle ---
+                // --- Sniper: Marksman Bolt-Action Rifle ---
                 // Right Arm: holds angled rifle grip
                 const rShoulder = new THREE.Vector3(0.14, -0.09, 0.20);
                 const rWrist = new THREE.Vector3(0.035, -0.055, 0.06);
@@ -388,7 +427,7 @@ class WeaponSystem {
                 armRoot.add(leftLimb.limbGroup);
 
             } else if (type === 'smg') {
-                // --- SMG: Run N Gun Submachine Gun ---
+                // --- SMG: Skirmisher Submachine Gun ---
                 // Right Arm: holds pistol grip
                 const rShoulder = new THREE.Vector3(0.14, -0.09, 0.20);
                 const rWrist = new THREE.Vector3(0.035, -0.065, 0.05);
@@ -432,7 +471,7 @@ class WeaponSystem {
                 armRoot.add(leftLimb.limbGroup);
 
             } else if (type === 'revolver') {
-                // --- Revolver: Detective Magnum ---
+                // --- Revolver: Enforcer Magnum ---
                 // Both hands locked in a solid two-handed combat grip
                 // Right Arm: holds combat grip
                 const rShoulder = new THREE.Vector3(0.12, -0.09, 0.20);
@@ -475,12 +514,56 @@ class WeaponSystem {
                 leftLimb.handGroup.add(lThumb);
 
                 armRoot.add(leftLimb.limbGroup);
+
+            } else if (type === 'shotgun') {
+                // --- Shotgun: Breacher Double-Barrel Shotgun ---
+                // Right Arm: Grips angled walnut stock / grip with trigger finger aligned
+                const rShoulder = new THREE.Vector3(0.14, -0.09, 0.20);
+                const rWrist = new THREE.Vector3(0.035, -0.055, 0.05);
+                const rightLimb = createLimb(rShoulder, rWrist);
+
+                const rPalm = new THREE.Mesh(new THREE.BoxGeometry(0.074, 0.076, 0.065), skinMat);
+                rPalm.position.set(0, 0, -0.015);
+                rightLimb.handGroup.add(rPalm);
+
+                const rFingers = new THREE.Mesh(new THREE.BoxGeometry(0.048, 0.065, 0.032), skinMat);
+                rFingers.position.set(-0.018, -0.012, -0.042);
+                rightLimb.handGroup.add(rFingers);
+
+                const rThumb = new THREE.Mesh(new THREE.BoxGeometry(0.024, 0.024, 0.038), skinMat);
+                rThumb.position.set(-0.028, 0.018, -0.015);
+                rightLimb.handGroup.add(rThumb);
+
+                const rTriggerFinger = new THREE.Mesh(new THREE.BoxGeometry(0.016, 0.016, 0.042), skinMat);
+                rTriggerFinger.position.set(-0.014, 0.015, -0.052);
+                rightLimb.handGroup.add(rTriggerFinger);
+
+                armRoot.add(rightLimb.limbGroup);
+
+                // Left Arm: Reaches forward underneath to firmly cup and support the tactical forend
+                const lShoulder = new THREE.Vector3(-0.14, -0.18, 0.14);
+                const lWrist = new THREE.Vector3(-0.012, -0.052, -0.18);
+                const leftLimb = createLimb(lShoulder, lWrist);
+
+                const lPalm = new THREE.Mesh(new THREE.BoxGeometry(0.074, 0.046, 0.078), skinMat);
+                lPalm.position.set(0, -0.005, -0.015);
+                leftLimb.handGroup.add(lPalm);
+
+                const lFingers = new THREE.Mesh(new THREE.BoxGeometry(0.032, 0.052, 0.074), skinMat);
+                lFingers.position.set(0.034, 0.016, -0.015);
+                leftLimb.handGroup.add(lFingers);
+
+                const lThumb = new THREE.Mesh(new THREE.BoxGeometry(0.026, 0.028, 0.055), skinMat);
+                lThumb.position.set(-0.032, 0.022, -0.015);
+                leftLimb.handGroup.add(lThumb);
+
+                armRoot.add(leftLimb.limbGroup);
             }
 
             return armRoot;
         };
 
-        // 1. Assault Rifle (Triggerman AK-47) - Matches media_1791207600381.png
+        // 1. Assault Rifle (Commando AK-47)
         const arGroup = new THREE.Group();
 
         // Stamped steel receiver
@@ -546,12 +629,12 @@ class WeaponSystem {
         reflexLens.position.set(0, 0.072, -0.04);
         arGroup.add(reflexLens);
 
-        // Add Krunker Character Arms
-        arGroup.add(buildKrunkerArms('ar'));
+        // Add Striker Character Arms
+        arGroup.add(buildStrikerArms('ar'));
         this.viewmodelRoot.add(arGroup);
         this.weaponMeshes.ar = { root: arGroup, mag: arMag, muzzlePos: new THREE.Vector3(0, 0.012, -0.58) };
 
-        // 2. Sniper Rifle (Hunter) - High Fidelity Voxel Bolt-Action Overhaul
+        // 2. Sniper Rifle (Marksman) - High Fidelity Voxel Bolt-Action Overhaul
         const sniperGroup = new THREE.Group();
 
         // Tactical Composite / Dark Timber Chassis (Full Length Bedding)
@@ -658,7 +741,7 @@ class WeaponSystem {
         portR.position.set(0, 0.034, -0.89);
         sniperGroup.add(portR);
 
-        // High-Power Telescopic Hunter Scope
+        // High-Power Telescopic Tactical Scope
         const scopeRoot = new THREE.Group();
         scopeRoot.position.set(0, 0.108, 0.02);
 
@@ -742,11 +825,11 @@ class WeaponSystem {
         sniperGroup.add(bipodFootR);
 
         // Character Arms
-        sniperGroup.add(buildKrunkerArms('sniper'));
+        sniperGroup.add(buildStrikerArms('sniper'));
         this.viewmodelRoot.add(sniperGroup);
         this.weaponMeshes.sniper = { root: sniperGroup, mag: snMag, muzzlePos: new THREE.Vector3(0, 0.034, -0.92) };
 
-        // 3. SMG (Run N Gun) - MP5 / UMP-45 Inspired Tactical Submachine Gun Overhaul
+        // 3. SMG (Skirmisher) - MP5 / UMP-45 Inspired Tactical Submachine Gun Overhaul
         const smgGroup = new THREE.Group();
 
         // Stamped Steel Upper Receiver with Fire Selector Pictograms & Markings
@@ -884,11 +967,11 @@ class WeaponSystem {
         smgGroup.add(buttPad);
 
         // Character Arms (Holding foregrip + pistol grip)
-        smgGroup.add(buildKrunkerArms('smg'));
+        smgGroup.add(buildStrikerArms('smg'));
         this.viewmodelRoot.add(smgGroup);
         this.weaponMeshes.smg = { root: smgGroup, mag: smgMag, muzzlePos: new THREE.Vector3(0, 0.012, -0.50) };
 
-        // 4. Tactical Magnum Revolver (Detective) - Heavy Hand Cannon Overhaul
+        // 4. Tactical Magnum Revolver (Enforcer) - Heavy Hand Cannon Overhaul
         const revGroup = new THREE.Group();
 
         // Solid Magnum Steel Frame with Brushed Sheen & Top Strap
@@ -1022,13 +1105,159 @@ class WeaponSystem {
         revGroup.add(goldMedallion);
 
         // Two-Handed Stance Arms
-        revGroup.add(buildKrunkerArms('revolver'));
+        revGroup.add(buildStrikerArms('revolver'));
         this.viewmodelRoot.add(revGroup);
         this.weaponMeshes.revolver = {
             root: revGroup,
             cylinder: revCylinderGroup,
             mag: null,
             muzzlePos: new THREE.Vector3(0, 0.016, -0.40)
+        };
+
+        // 5. Double-Barrel Shotgun (Breacher) - Heavy Voxel Coach Gun Hierarchy
+        const shotgunGroup = new THREE.Group();
+
+        // Heavy Machined Tactical Steel Receiver
+        const shReceiver = new THREE.Mesh(new THREE.BoxGeometry(0.064, 0.088, 0.20), gunmetalMat);
+        shReceiver.position.set(0, 0.005, 0.02);
+        shotgunGroup.add(shReceiver);
+
+        // Engraved Side Plates
+        const shSidePlateL = new THREE.Mesh(new THREE.BoxGeometry(0.004, 0.076, 0.16), darkSteelMat);
+        shSidePlateL.position.set(-0.031, 0.005, 0.02);
+        shotgunGroup.add(shSidePlateL);
+
+        const shSidePlateR = new THREE.Mesh(new THREE.BoxGeometry(0.004, 0.076, 0.16), darkSteelMat);
+        shSidePlateR.position.set(0.031, 0.005, 0.02);
+        shotgunGroup.add(shSidePlateR);
+
+        // Break-Action Hinge Pivot Pin
+        const shHingePin = new THREE.Mesh(new THREE.CylinderGeometry(0.014, 0.014, 0.068, 12), chromeBoltMat);
+        shHingePin.rotation.z = Math.PI / 2;
+        shHingePin.position.set(0, -0.024, -0.06);
+        shotgunGroup.add(shHingePin);
+
+        // Top Tang Break Lever (Turned to unlock)
+        const shBreakLever = new THREE.Mesh(new THREE.BoxGeometry(0.012, 0.018, 0.048), darkSteelMat);
+        shBreakLever.position.set(0.008, 0.054, 0.04);
+        shBreakLever.rotation.y = 0.25;
+        shotgunGroup.add(shBreakLever);
+
+        const shBreakKnob = new THREE.Mesh(new THREE.CylinderGeometry(0.010, 0.010, 0.016, 8), brassMat);
+        shBreakKnob.position.set(0.014, 0.062, 0.058);
+        shotgunGroup.add(shBreakKnob);
+
+        // Tang Safety Slide Switch
+        const shSafetySwitch = new THREE.Mesh(new THREE.BoxGeometry(0.012, 0.010, 0.022), titaniumMat);
+        shSafetySwitch.position.set(0, 0.052, 0.09);
+        shotgunGroup.add(shSafetySwitch);
+
+        // Heavy Trigger Guard & Twin Brass Triggers
+        const shTriggerGuard = new THREE.Mesh(new THREE.BoxGeometry(0.016, 0.052, 0.076), darkSteelMat);
+        shTriggerGuard.position.set(0, -0.052, 0.03);
+        shotgunGroup.add(shTriggerGuard);
+
+        const shTrigger1 = new THREE.Mesh(new THREE.BoxGeometry(0.008, 0.026, 0.012), brassMat);
+        shTrigger1.position.set(0, -0.045, 0.042);
+        shTrigger1.rotation.x = -0.25;
+        shotgunGroup.add(shTrigger1);
+
+        const shTrigger2 = new THREE.Mesh(new THREE.BoxGeometry(0.008, 0.024, 0.012), brassMat);
+        shTrigger2.position.set(0, -0.043, 0.020);
+        shTrigger2.rotation.x = -0.25;
+        shotgunGroup.add(shTrigger2);
+
+        // Twin Blued Steel Barrels (Side-by-Side Breacher)
+        // Solid Monobloc barrel junction collar
+        const shMonobloc = new THREE.Mesh(new THREE.BoxGeometry(0.062, 0.046, 0.08), gunmetalMat);
+        shMonobloc.position.set(0, 0.018, -0.11);
+        shotgunGroup.add(shMonobloc);
+
+        // Left barrel
+        const shBarrelL = new THREE.Mesh(new THREE.CylinderGeometry(0.016, 0.016, 0.36, 12), darkSteelMat);
+        shBarrelL.rotation.x = Math.PI / 2;
+        shBarrelL.position.set(-0.018, 0.018, -0.26);
+        shotgunGroup.add(shBarrelL);
+
+        // Right barrel
+        const shBarrelR = new THREE.Mesh(new THREE.CylinderGeometry(0.016, 0.016, 0.36, 12), darkSteelMat);
+        shBarrelR.rotation.x = Math.PI / 2;
+        shBarrelR.position.set(0.018, 0.018, -0.26);
+        shotgunGroup.add(shBarrelR);
+
+        // Dark hollow bore recesses at muzzle tip
+        const shBoreL = new THREE.Mesh(new THREE.CylinderGeometry(0.011, 0.011, 0.02, 12), rubberMat);
+        shBoreL.rotation.x = Math.PI / 2;
+        shBoreL.position.set(-0.018, 0.018, -0.435);
+        shotgunGroup.add(shBoreL);
+
+        const shBoreR = new THREE.Mesh(new THREE.CylinderGeometry(0.011, 0.011, 0.02, 12), rubberMat);
+        shBoreR.rotation.x = Math.PI / 2;
+        shBoreR.position.set(0.018, 0.018, -0.435);
+        shotgunGroup.add(shBoreR);
+
+        // Ventilated Top Rib
+        const shRib = new THREE.Mesh(new THREE.BoxGeometry(0.014, 0.014, 0.34), gunmetalMat);
+        shRib.position.set(0, 0.035, -0.26);
+        shotgunGroup.add(shRib);
+
+        for (let s = 0; s < 3; s++) {
+            const shSlot = new THREE.Mesh(new THREE.BoxGeometry(0.016, 0.008, 0.035), darkSteelMat);
+            shSlot.position.set(0, 0.038, -0.16 - s * 0.08);
+            shotgunGroup.add(shSlot);
+        }
+
+        // Brass Bead Front Sight
+        const shBead = new THREE.Mesh(new THREE.SphereGeometry(0.005, 8, 8), brassMat);
+        shBead.position.set(0, 0.044, -0.428);
+        shotgunGroup.add(shBead);
+
+        // Chunky Tactical Forend Underneath Barrels
+        const shForend = new THREE.Mesh(new THREE.BoxGeometry(0.062, 0.052, 0.20), woodMat);
+        shForend.position.set(0, -0.016, -0.18);
+        shotgunGroup.add(shForend);
+
+        const shForendIron = new THREE.Mesh(new THREE.BoxGeometry(0.040, 0.012, 0.16), darkSteelMat);
+        shForendIron.position.set(0, -0.040, -0.18);
+        shotgunGroup.add(shForendIron);
+
+        const shForendCheckL = new THREE.Mesh(new THREE.BoxGeometry(0.006, 0.024, 0.14), walnutGripMat);
+        shForendCheckL.position.set(-0.031, -0.014, -0.18);
+        shotgunGroup.add(shForendCheckL);
+
+        const shForendCheckR = new THREE.Mesh(new THREE.BoxGeometry(0.006, 0.024, 0.14), walnutGripMat);
+        shForendCheckR.position.set(0.031, -0.014, -0.18);
+        shotgunGroup.add(shForendCheckR);
+
+        // Polished Walnut Tactical Stock
+        const shStockWrist = new THREE.Mesh(new THREE.BoxGeometry(0.048, 0.108, 0.14), woodMat);
+        shStockWrist.position.set(0, -0.048, 0.14);
+        shStockWrist.rotation.x = -0.32;
+        shotgunGroup.add(shStockWrist);
+
+        const shStockBody = new THREE.Mesh(new THREE.BoxGeometry(0.054, 0.116, 0.24), woodMat);
+        shStockBody.position.set(0, -0.030, 0.28);
+        shotgunGroup.add(shStockBody);
+
+        const shCheekRest = new THREE.Mesh(new THREE.BoxGeometry(0.046, 0.036, 0.16), woodMat);
+        shCheekRest.position.set(0, 0.038, 0.27);
+        shotgunGroup.add(shCheekRest);
+
+        const shSpacer = new THREE.Mesh(new THREE.BoxGeometry(0.055, 0.120, 0.008), cuffMat);
+        shSpacer.position.set(0, -0.030, 0.402);
+        shotgunGroup.add(shSpacer);
+
+        const shButtpad = new THREE.Mesh(new THREE.BoxGeometry(0.056, 0.124, 0.034), rubberMat);
+        shButtpad.position.set(0, -0.030, 0.42);
+        shotgunGroup.add(shButtpad);
+
+        // Striker Character Arms
+        shotgunGroup.add(buildStrikerArms('shotgun'));
+        this.viewmodelRoot.add(shotgunGroup);
+        this.weaponMeshes.shotgun = {
+            root: shotgunGroup,
+            mag: null,
+            muzzlePos: new THREE.Vector3(0, 0.018, -0.44)
         };
 
         // Muzzle Flash
@@ -1056,42 +1285,108 @@ class WeaponSystem {
             this.weaponMeshes[k].root.visible = (k === key);
         });
 
+        if (this.audio && typeof this.audio.playSwitchWeapon === 'function') {
+            this.audio.playSwitchWeapon();
+        }
+
         if (window.uiManager) {
-            window.uiManager.updateWeaponUI(this.currentWeapon, this.ammoState[key]);
+            window.uiManager.updateWeaponUI(this.currentWeapon, this.ammoState[key], this.ammoState);
             window.uiManager.setActiveHotbarSlot(key);
+            if (this.ammoState[key].clip <= 0) {
+                if (this.ammoState[key].reserve > 0) {
+                    window.uiManager.showReloadPrompt();
+                } else {
+                    window.uiManager.showNoAmmoAlert();
+                }
+            } else {
+                window.uiManager.hideReloadPrompt();
+                window.uiManager.hideNoAmmoAlert();
+            }
         }
     }
 
+    canReload() {
+        if (this.isReloading || (this.player && this.player.isDead)) return false;
+        const ammo = this.ammoState[this.currentWeaponKey];
+        if (!ammo) return false;
+        return ammo.clip < this.currentWeapon.magSize && ammo.reserve > 0;
+    }
+
     resetAmmo() {
-        this.ammoState.ar = { clip: 30, reserve: 120 };
-        this.ammoState.sniper = { clip: 3, reserve: 21 };
-        this.ammoState.smg = { clip: 34, reserve: 136 };
-        this.ammoState.revolver = { clip: 6, reserve: 36 };
+        for (const key of this.weaponKeys) {
+            const w = this.weapons[key];
+            if (w) {
+                this.ammoState[key] = {
+                    clip: w.initialClip !== undefined ? w.initialClip : w.magSize,
+                    reserve: w.initialReserve !== undefined ? w.initialReserve : w.maxReserve
+                };
+            }
+        }
         this.isReloading = false;
+        this.reloadTimer = 0;
         if (window.uiManager) {
-            window.uiManager.updateWeaponUI(this.currentWeapon, this.ammoState[this.currentWeaponKey]);
+            window.uiManager.updateWeaponUI(this.currentWeapon, this.ammoState[this.currentWeaponKey], this.ammoState);
+            window.uiManager.hideReloadPrompt();
+            window.uiManager.hideLowAmmoWarning();
+            window.uiManager.hideNoAmmoAlert();
         }
     }
 
     reload() {
+        if (this.isReloading || (this.player && this.player.isDead)) return false;
+
         const ammo = this.ammoState[this.currentWeaponKey];
-        if (this.isReloading || ammo.clip >= this.currentWeapon.magSize || ammo.reserve <= 0) return;
+        if (!ammo) return false;
+
+        // Clip already fully loaded: no reload needed
+        if (ammo.clip >= this.currentWeapon.magSize) {
+            return false;
+        }
+
+        // Reserve pool depleted: cannot reload, trigger empty chamber click sound & visual hint
+        if (ammo.reserve <= 0) {
+            if (this.audio && typeof this.audio.playEmptyClick === 'function') {
+                this.audio.playEmptyClick();
+            }
+            if (window.uiManager) {
+                window.uiManager.updateWeaponUI(this.currentWeapon, ammo, this.ammoState);
+                if (ammo.clip === 0) {
+                    window.uiManager.showNoAmmoAlert();
+                } else {
+                    window.uiManager.showAmmoWarning("NO RESERVE");
+                }
+            }
+            return false;
+        }
 
         this.isReloading = true;
         this.reloadTimer = this.currentWeapon.reloadTime;
 
+        if (window.uiManager) {
+            window.uiManager.hideReloadPrompt();
+            window.uiManager.hideLowAmmoWarning();
+        }
+
         // Stage 1: Mag release
-        this.audio.playReload(1);
+        this.audio.playReload(1, this.currentWeaponKey);
 
         // Stage 2: Slap in new mag
-        setTimeout(() => { if (this.isReloading) this.audio.playReload(2); }, this.currentWeapon.reloadTime * 450);
+        setTimeout(() => {
+            if (this.isReloading) this.audio.playReload(2, this.currentWeaponKey);
+        }, this.currentWeapon.reloadTime * 450);
 
         // Stage 3: Slide rack / chamber
-        setTimeout(() => { if (this.isReloading) this.audio.playReload(3); }, this.currentWeapon.reloadTime * 800);
+        setTimeout(() => {
+            if (this.isReloading) this.audio.playReload(3, this.currentWeaponKey);
+        }, this.currentWeapon.reloadTime * 800);
+
+        return true;
     }
 
     finishReload() {
         const ammo = this.ammoState[this.currentWeaponKey];
+        if (!ammo) return;
+
         const needed = this.currentWeapon.magSize - ammo.clip;
         const toLoad = Math.min(needed, ammo.reserve);
         ammo.clip += toLoad;
@@ -1099,20 +1394,21 @@ class WeaponSystem {
         this.isReloading = false;
 
         if (window.uiManager) {
-            window.uiManager.updateWeaponUI(this.currentWeapon, ammo);
+            window.uiManager.updateWeaponUI(this.currentWeapon, ammo, this.ammoState);
             window.uiManager.hideReloadPrompt();
         }
     }
 
     ejectShellCasing(muzzleWorld) {
-        const casingGeo = new THREE.CylinderGeometry(0.012, 0.012, 0.04, 6);
-        const casingMat = new THREE.MeshBasicMaterial({ color: 0xffcc33 });
+        const isShotgun = this.currentWeaponKey === 'shotgun';
+        const casingGeo = isShotgun ? new THREE.CylinderGeometry(0.016, 0.016, 0.055, 8) : new THREE.CylinderGeometry(0.012, 0.012, 0.04, 6);
+        const casingMat = new THREE.MeshBasicMaterial({ color: isShotgun ? 0xcc2222 : 0xffcc33 });
         const mesh = new THREE.Mesh(casingGeo, casingMat);
-        mesh.position.copy(muzzleWorld).add(new THREE.Vector3(0.1, -0.05, 0.1));
+        mesh.position.copy(muzzleWorld).add(_tempVec.set(0.1, -0.05, 0.1));
 
         const yaw = this.player.yawObject.rotation.y;
-        const rightVec = new THREE.Vector3(Math.cos(yaw), 1.2, -Math.sin(yaw)).normalize();
-        const velocity = rightVec.multiplyScalar(3.2 + Math.random() * 1.5);
+        const rightVec = _tempVec.set(Math.cos(yaw), 1.2, -Math.sin(yaw)).normalize();
+        const velocity = new THREE.Vector3().copy(rightVec).multiplyScalar(3.2 + Math.random() * 1.5);
 
         this.scene.add(mesh);
         this.casings.push({
@@ -1123,13 +1419,88 @@ class WeaponSystem {
         });
     }
 
+    calculateDamage(weaponKey, distance, isHeadshot) {
+        if (weaponKey === 'ar') {
+            // Base Body Damage: 28 HP
+            // Headshot Multiplier: 1.90 (Math.round(28 * 1.90) = 53 HP). (2 headshots = 106 HP -> KILL)
+            return isHeadshot ? Math.round(28 * 1.90) : 28;
+        }
+
+        if (weaponKey === 'shotgun') {
+            // Per pellet damage based on distance d (meters) - Scaled 3-4x for realistic combat distance:
+            // Point Blank (d < 8m): Base damage 14 per pellet (8 * 14 = 112 body -> 1-shot kill)
+            // Close Quarters (8m <= d <= 18m): Base damage 7 per pellet (8 * 7 = 56 body, 8 * 14 = 112 headshot)
+            // Mid/Long Range (d > 18m): Exponential decay factor: factor = e^(-0.12 * (d - 18))
+            // Base pellet damage = max(1, round(7 * factor)). If headshot, multiplier 2.0.
+            let basePelletDmg = 7;
+            if (distance < 8.0) {
+                basePelletDmg = 14;
+            } else if (distance <= 18.0) {
+                basePelletDmg = 7;
+            } else {
+                const factor = Math.exp(-0.12 * (distance - 18.0));
+                basePelletDmg = Math.max(1, Math.round(7 * factor));
+            }
+            return isHeadshot ? Math.round(basePelletDmg * 2.0) : basePelletDmg;
+        }
+
+        if (weaponKey === 'revolver') {
+            // Base Body Damage: 68 HP (2 body shots to kill)
+            // Headshot Multiplier: 1.60 -> Math.round(68 * 1.60) = 109 HP
+            // Zero headshot damage falloff at any distance (any headshot deals >= 100 HP -> 1-shot kill)
+            return isHeadshot ? Math.round(68 * 1.60) : 68;
+        }
+
+        if (weaponKey === 'sniper') {
+            // Base Body Damage (d <= 35m): 105 HP -> 1-shot body kill
+            // Falloff (d > 35m): Body shot damage drops to 85 HP (leaves 15 HP)
+            // Headshot Multiplier: 1.80 (Deals 153+ HP at all distances -> 1-shot headshot at any distance)
+            const baseDmg = distance <= 35.0 ? 105 : 85;
+            return isHeadshot ? Math.round(baseDmg * 1.80) : baseDmg;
+        }
+
+        if (weaponKey === 'smg') {
+            // Base Damage (d <= 15m): 18 HP
+            // Falloff (d > 20m): Rapid linear drop from 18 at 20m to 7 at 30m+, min 7 HP
+            // Headshot multiplier: 1.4 (round(dmg * 1.4))
+            let dmg = 18;
+            if (distance > 20.0) {
+                const t = Math.min(1.0, (distance - 20.0) / 10.0);
+                dmg = Math.max(7, Math.round(18.0 - 11.0 * t));
+            }
+            return isHeadshot ? Math.round(dmg * 1.4) : dmg;
+        }
+
+        const weapon = this.weapons[weaponKey] || this.currentWeapon;
+        return Math.round(weapon.damage * (isHeadshot ? weapon.headshotMult : 1.0));
+    }
+
     shoot() {
-        if (this.isReloading || this.player.isDead) return;
+        if (this.isReloading || (this.player && this.player.isDead)) return;
         const now = performance.now();
         if (now - this.lastShotTime < this.currentWeapon.fireRate) return;
 
         const ammo = this.ammoState[this.currentWeaponKey];
+        if (!ammo) return;
+
         if (ammo.clip <= 0) {
+            // Reserve is also empty -> Total ammo exhaustion!
+            if (ammo.reserve <= 0) {
+                const emptyClickInterval = Math.max(250, this.currentWeapon.fireRate);
+                if (now - this.lastShotTime >= emptyClickInterval) {
+                    this.lastShotTime = now;
+                    if (this.audio && typeof this.audio.playEmptyClick === 'function') {
+                        this.audio.playEmptyClick();
+                    }
+                    if (window.uiManager) {
+                        window.uiManager.updateWeaponUI(this.currentWeapon, ammo, this.ammoState);
+                        window.uiManager.showNoAmmoAlert();
+                    }
+                }
+                return;
+            }
+
+            // Reserve available: auto-trigger reload
             this.reload();
             return;
         }
@@ -1139,14 +1510,24 @@ class WeaponSystem {
 
         this.audio.playShoot(this.currentWeapon.id);
 
+        // Low-ammo tactical warning: subtle tactile click when reaching last 25% of magazine
+        const lowAmmoThreshold = Math.ceil(this.currentWeapon.magSize * 0.25);
+        if (ammo.clip <= lowAmmoThreshold && ammo.clip > 0) {
+            if (this.audio && typeof this.audio.playLowAmmoWarning === 'function') {
+                this.audio.playLowAmmoWarning(ammo.clip, lowAmmoThreshold);
+            }
+        }
+
         this.recoilSpring.z += this.currentWeapon.recoilKick;
         this.recoilRot.x += this.currentWeapon.recoilPitch;
         this.particles.addTrauma(this.currentWeapon.recoilPitch * 1.4);
 
         if (window.uiManager) window.uiManager.expandCrosshair();
 
+        const isHyper = !!(this.player && this.player.boosters && this.player.boosters.damage > 0);
         this.flashTimer = 0.045;
-        this.muzzleLight.intensity = 2.8;
+        this.muzzleLight.intensity = isHyper ? 4.5 : 2.8;
+        this.muzzleLight.color.setHex(isHyper ? 0xff0044 : 0xffea78);
         this.muzzleFlashGroup.visible = true;
         const activeMuzzle = this.weaponMeshes[this.currentWeaponKey].muzzlePos;
         this.muzzleFlashGroup.position.copy(activeMuzzle);
@@ -1155,22 +1536,21 @@ class WeaponSystem {
         this.performRaycast();
 
         if (window.uiManager) {
-            window.uiManager.updateWeaponUI(this.currentWeapon, ammo);
-            if (ammo.clip <= 0) window.uiManager.showReloadPrompt();
+            window.uiManager.updateWeaponUI(this.currentWeapon, ammo, this.ammoState);
+            if (ammo.clip <= 0) {
+                if (ammo.reserve > 0) {
+                    // Smart auto-reload on empty magazine when reserves are available
+                    this.reload();
+                } else {
+                    // Depleted: do NOT auto-reload, trigger stylized NO AMMO alert badge
+                    window.uiManager.showNoAmmoAlert();
+                }
+            }
         }
     }
 
     performRaycast() {
-        const spread = this.isAiming ? 0 : this.currentWeapon.spread;
-        const spreadX = (Math.random() - 0.5) * spread;
-        const spreadY = (Math.random() - 0.5) * spread;
-
-        const raycaster = new THREE.Raycaster();
-        raycaster.setFromCamera(new THREE.Vector2(spreadX, spreadY), this.camera);
-
-        const muzzleWorld = new THREE.Vector3();
-        this.muzzleFlashGroup.getWorldPosition(muzzleWorld);
-        this.ejectShellCasing(muzzleWorld);
+        this.muzzleFlashGroup.getWorldPosition(_muzzleWorld);
 
         const botHitboxes = [];
         if (window.botManager) {
@@ -1178,34 +1558,125 @@ class WeaponSystem {
         }
 
         const candidateMeshes = botHitboxes.map(b => b.mesh).concat(this.player.map.shootableMeshes);
-        const hits = raycaster.intersectObjects(candidateMeshes, false);
 
-        const validHit = hits.length > 0 ? hits[0] : null;
-        const hitPos = validHit ? validHit.point : raycaster.ray.origin.clone().add(raycaster.ray.direction.clone().multiplyScalar(150));
+        const isHyper = !!(this.player && this.player.boosters && this.player.boosters.damage > 0);
+        const damageMult = isHyper ? 2.5 : 1.0;
 
-        const tracerColor = this.currentWeaponKey === 'sniper' ? 0xff3355 : 0x00ffcc;
-        this.particles.createTracer(muzzleWorld, hitPos, tracerColor);
+        if (this.currentWeaponKey === 'shotgun') {
+            const PELLET_COUNT = 8;
+            const spreadRadius = this.isAiming ? this.currentWeapon.adsSpread : this.currentWeapon.spread;
 
-        if (validHit) {
-            const hitObject = validHit.object;
-            const botData = botHitboxes.find(b => b.mesh === hitObject);
+            this.ejectShellCasing(_muzzleWorld);
 
-            if (botData) {
-                const isHeadshot = botData.isHead;
-                const damage = Math.round(this.currentWeapon.damage * (isHeadshot ? this.currentWeapon.headshotMult : 1.0));
+            // Aggregate hits per bot in that frame
+            const botHits = new Map();
 
-                this.audio.playHit(isHeadshot);
-                this.particles.createHitSplatter(hitPos, isHeadshot);
-                this.particles.addDamageNumber(damage, hitPos, isHeadshot);
+            for (let i = 0; i < PELLET_COUNT; i++) {
+                // Randomized Gaussian/radial offset within spread cone
+                const angle = Math.random() * Math.PI * 2;
+                const r = Math.sqrt(Math.random()) * spreadRadius;
+                const spreadX = Math.cos(angle) * r;
+                const spreadY = Math.sin(angle) * r;
 
-                if (window.uiManager) {
-                    window.uiManager.triggerHitmarker(isHeadshot);
+                _screenCoords.set(spreadX, spreadY);
+                _raycaster.setFromCamera(_screenCoords, this.camera);
+
+                const hits = _raycaster.intersectObjects(candidateMeshes, false);
+                const validHit = hits.length > 0 ? hits[0] : null;
+                const hitPos = validHit ? validHit.point : _tempVec.copy(_raycaster.ray.origin).addScaledVector(_raycaster.ray.direction, 100);
+
+                // Buckshot tracer (Crimson when Hyper Damage is active)
+                const buckshotColor = isHyper ? 0xff0033 : 0xffaa33;
+                this.particles.createTracer(_muzzleWorld, hitPos, buckshotColor);
+
+                if (validHit) {
+                    const hitObject = validHit.object;
+                    const botData = botHitboxes.find(b => b.mesh === hitObject);
+
+                    if (botData) {
+                        const isHeadshot = !!botData.isHead;
+                        this.camera.getWorldPosition(_camWorld);
+                        const dist = _camWorld.distanceTo(hitPos);
+                        const pelletDmg = Math.round(this.calculateDamage('shotgun', dist, isHeadshot) * damageMult);
+
+                        this.particles.createHitSplatter(hitPos, isHeadshot);
+
+                        if (!botHits.has(botData.bot)) {
+                            botHits.set(botData.bot, {
+                                bot: botData.bot,
+                                totalDamage: pelletDmg,
+                                hadHeadshot: isHeadshot,
+                                hitPos: hitPos.clone()
+                            });
+                        } else {
+                            const entry = botHits.get(botData.bot);
+                            entry.totalDamage += pelletDmg;
+                            if (isHeadshot) entry.hadHeadshot = true;
+                            entry.hitPos.copy(hitPos);
+                        }
+                    } else {
+                        const normal = validHit.face ? validHit.face.normal : _wallNormal.set(0, 1, 0);
+                        this.particles.createWallImpact(hitPos, normal);
+                    }
                 }
+            }
 
-                botData.bot.takeDamage(damage, this.player, isHeadshot, this.currentWeapon.name);
-            } else {
-                const normal = validHit.face ? validHit.face.normal : new THREE.Vector3(0, 1, 0);
-                this.particles.createWallImpact(hitPos, normal);
+            if (botHits.size > 0) {
+                let anyHeadshot = false;
+                botHits.forEach(entry => {
+                    if (entry.hadHeadshot) anyHeadshot = true;
+                    this.particles.addDamageNumber(entry.totalDamage, entry.hitPos, entry.hadHeadshot);
+                    entry.bot.takeDamage(entry.totalDamage, this.player, entry.hadHeadshot, this.currentWeapon.name);
+                });
+
+                this.audio.playHit(anyHeadshot);
+                if (window.uiManager) {
+                    window.uiManager.triggerHitmarker(anyHeadshot);
+                }
+            }
+
+        } else {
+            // Single bullet weapons: AR, Sniper, SMG, Revolver
+            const spread = this.isAiming ? 0 : this.currentWeapon.spread;
+            const spreadX = (Math.random() - 0.5) * spread;
+            const spreadY = (Math.random() - 0.5) * spread;
+
+            _screenCoords.set(spreadX, spreadY);
+            _raycaster.setFromCamera(_screenCoords, this.camera);
+
+            this.ejectShellCasing(_muzzleWorld);
+
+            const hits = _raycaster.intersectObjects(candidateMeshes, false);
+            const validHit = hits.length > 0 ? hits[0] : null;
+            const hitPos = validHit ? validHit.point : _tempVec.copy(_raycaster.ray.origin).addScaledVector(_raycaster.ray.direction, 150);
+
+            const defaultTracer = this.currentWeaponKey === 'sniper' ? 0xff3355 : (this.currentWeaponKey === 'revolver' ? 0xffaa22 : 0x00ffcc);
+            const tracerColor = isHyper ? 0xff0033 : defaultTracer;
+            this.particles.createTracer(_muzzleWorld, hitPos, tracerColor);
+
+            if (validHit) {
+                const hitObject = validHit.object;
+                const botData = botHitboxes.find(b => b.mesh === hitObject);
+
+                if (botData) {
+                    const isHeadshot = !!botData.isHead;
+                    this.camera.getWorldPosition(_camWorld);
+                    const dist = _camWorld.distanceTo(hitPos);
+                    const damage = Math.round(this.calculateDamage(this.currentWeaponKey, dist, isHeadshot) * damageMult);
+
+                    this.audio.playHit(isHeadshot);
+                    this.particles.createHitSplatter(hitPos, isHeadshot);
+                    this.particles.addDamageNumber(damage, hitPos, isHeadshot);
+
+                    if (window.uiManager) {
+                        window.uiManager.triggerHitmarker(isHeadshot);
+                    }
+
+                    botData.bot.takeDamage(damage, this.player, isHeadshot, this.currentWeapon.name);
+                } else {
+                    const normal = validHit.face ? validHit.face.normal : _wallNormal.set(0, 1, 0);
+                    this.particles.createWallImpact(hitPos, normal);
+                }
             }
         }
     }
@@ -1298,7 +1769,11 @@ class WeaponSystem {
             }
         }
 
-        const targetFov = this.isAiming ? this.currentWeapon.adsFov : (window.gameSettings ? window.gameSettings.fov : 75);
+        const baseFov = (window.gameSettings ? window.gameSettings.fov : 75);
+        let targetFov = this.isAiming ? this.currentWeapon.adsFov : baseFov;
+        if (!this.isAiming && this.player && this.player.boosters && this.player.boosters.speed > 0) {
+            targetFov += 10; // Adrenaline Burst dynamic FOV warp
+        }
         this.camera.fov += (targetFov - this.camera.fov) * 16 * dt;
         this.camera.updateProjectionMatrix();
 

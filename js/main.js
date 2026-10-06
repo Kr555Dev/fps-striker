@@ -1,10 +1,10 @@
 /**
- * Krunker-Style FPS Game Entry Point
+ * FPS Striker // Fast-Paced 3D Voxel FPS Entry Point
  * High-performance Three.js setup: Zero shadow depth passes, fast linear lighting,
  * and adaptive resolution scaling to guarantee 60+ FPS under all conditions.
  */
 
-class KrunkerGame {
+class FPSStrikerGame {
     constructor() {
         this.container = document.getElementById('game-container');
         this.scene = null;
@@ -16,6 +16,8 @@ class KrunkerGame {
         this.player = null;
         this.weapons = null;
         this.bots = null;
+        this.loot = null;
+        this.boosters = null;
         this.particles = null;
         this.ui = null;
 
@@ -88,6 +90,13 @@ class KrunkerGame {
         this.bots = new BotManager(this.scene, this.map, window.soundEngine, this.particles);
         window.botManager = this.bots;
 
+        this.loot = new LootSystem(this.scene, this.player, this.weapons, window.soundEngine, this.particles);
+        window.lootSystem = this.loot;
+        window.dropManager = this.loot;
+
+        this.boosters = new BoosterManager(this.scene, this.particles, window.soundEngine);
+        window.boosterManager = this.boosters;
+
         this.ui = new UIManager();
         window.uiManager = this.ui;
 
@@ -107,7 +116,7 @@ class KrunkerGame {
             this.player.pitchObject.rotation.x = -0.05;
         }
 
-        // Start Menu & Quick Match Click to Play (Krunker Lobby)
+        // Start Menu & Quick Match Click to Play (FPS Striker Lobby)
         const startMenu = document.getElementById('start-menu');
         const startGame = () => {
             this.isGameStarted = true;
@@ -121,6 +130,15 @@ class KrunkerGame {
             }
             if (this.player) {
                 this.player.spawn();
+            }
+            if (this.weapons) {
+                this.weapons.resetAmmo();
+            }
+            if (this.loot) {
+                this.loot.clearAllDrops();
+            }
+            if (this.boosters) {
+                this.boosters.reset();
             }
             document.body.requestPointerLock();
         };
@@ -279,7 +297,7 @@ class KrunkerGame {
         // Core Updates
         if (this.player) {
             this.player.update(dt);
-            this.ui.updateHealth(this.player.health, this.player.maxHealth);
+            this.ui.updateHealth(this.player.health, this.player.maxHealth, this.player.shield, this.player.maxShield);
         }
 
         if (this.weapons) {
@@ -290,8 +308,20 @@ class KrunkerGame {
             this.bots.update(dt, this.player);
         }
 
+        if (this.loot) {
+            this.loot.update(dt);
+        }
+
+        if (this.boosters && this.player) {
+            this.boosters.update(dt, this.player);
+        }
+
         if (this.particles) {
             this.particles.update(dt);
+        }
+
+        if (this.ui && this.player) {
+            this.ui.updateBoosters(this.player);
         }
 
         if (this.ui) {
@@ -311,6 +341,6 @@ class KrunkerGame {
 }
 
 window.addEventListener('DOMContentLoaded', () => {
-    window.game = new KrunkerGame();
+    window.game = new FPSStrikerGame();
     window.game.isGameStarted = false;
 });

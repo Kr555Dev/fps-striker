@@ -1,8 +1,12 @@
 /**
- * Krunker-Style Arena Map Generator ("Sandstorm / Burg" inspired)
+ * FPS Striker Arena Map Generator (Outpost Arena)
  * Unified clean bounding colliders without crevice traps, seamless cover props,
  * open-air navigation network, and robust penetration resolution.
  */
+
+// Pre-allocated scratch objects for zero-GC raycasting
+const _losDir = new THREE.Vector3();
+const _losRay = new THREE.Raycaster();
 
 class GameMap {
     constructor(scene) {
@@ -76,7 +80,7 @@ class GameMap {
     }
 
     buildArena() {
-        // 1. Arena Ground: Rich Voxel Olive Grass Base (Matches Krunker Undergrowth)
+        // 1. Arena Ground: Rich Voxel Olive Grass Base
         const floorGeo = new THREE.PlaneGeometry(160, 160);
         const floorMesh = new THREE.Mesh(floorGeo, this.materials.grassVoxel);
         floorMesh.rotation.x = -Math.PI / 2;
@@ -92,7 +96,7 @@ class GameMap {
             max: new THREE.Vector3(80, 0, 80)
         });
 
-        // 2. Winding Dirt Paths & Central Clay Courtyard (Matches Krunker Undergrowth)
+        // 2. Winding Dirt Paths & Central Clay Courtyard
         const addDirtSlab = (x, z, w, d) => {
             const slabGeo = new THREE.PlaneGeometry(w, d);
             const slab = new THREE.Mesh(slabGeo, this.materials.dirtPath);
@@ -134,7 +138,7 @@ class GameMap {
         this.addBox(78, wallH / 2, 0, wallThick, wallH, 160, this.materials.stoneBrickLong);
         this.addBox(78, wallH + 0.4, 0, wallThick + 0.6, 0.8, 162, this.materials.trimDark, false);
 
-        // 4. Central Plaza Ruined Fortress & Tiered Pillars (Matches Krunker Undergrowth monument)
+        // 4. Central Plaza Ruined Fortress & Tiered Pillars
         // Main dais
         this.addBox(0, 0.9, 0, 18, 1.8, 18, this.materials.stoneBrick);
         this.addBox(0, 1.9, 0, 19, 0.3, 19, this.materials.trimDark);
@@ -185,9 +189,13 @@ class GameMap {
         this.addBox(towerX - 8.5, 10.5, towerZ, 1, 2.2, 16, this.materials.sandBrick);
         this.addBox(towerX + 8.5, 10.5, towerZ, 1, 2.2, 16, this.materials.sandBrick);
 
-        // Ramp up to Tower
-        for (let i = 0; i < 8; i++) {
-            this.addBox(towerX - 12 - (i * 2.2), 0.5 + (i * 0.95), towerZ, 2.4, 1.0 + (i * 1.9), 5, this.materials.diamondPlate, true, true);
+        // Ramp up to Tower (16 climbable steps with 0.55m riser height)
+        for (let i = 0; i < 16; i++) {
+            const stepTop = 0.55 + (i * 0.55);
+            const stepH = stepTop;
+            const stepY = stepH / 2;
+            const stepX = 35.5 - (i * 1.2);
+            this.addBox(stepX, stepY, towerZ, 1.3, stepH, 5, this.materials.diamondPlate, true, true);
         }
 
         // 5. South-West Elevated Fortress
@@ -199,9 +207,13 @@ class GameMap {
         this.addBox(fortX + 10.5, 8.5, fortZ, 1, 2, 20, this.materials.concrete);
         this.addBox(fortX, 8.5, fortZ + 10.5, 20, 2, 1, this.materials.concrete);
 
-        // Ramp up to Fort
-        for (let i = 0; i < 7; i++) {
-            this.addBox(fortX, 0.5 + (i * 0.95), fortZ - 13 - (i * 2.2), 5, 1.0 + (i * 1.9), 2.4, this.materials.diamondPlate, true, true);
+        // Ramp up to Fort (13 climbable steps with 0.52m riser height)
+        for (let i = 0; i < 13; i++) {
+            const stepTop = 0.55 + (i * 0.52);
+            const stepH = stepTop;
+            const stepY = stepH / 2;
+            const stepZ = 18.0 + (i * 1.2);
+            this.addBox(fortX, stepY, stepZ, 5, stepH, 1.3, this.materials.diamondPlate, true, true);
         }
 
         // Skybridge Overlook
@@ -284,13 +296,15 @@ class GameMap {
     }
 
     hasLineOfSight(fromPos, toPos) {
-        const direction = new THREE.Vector3().subVectors(toPos, fromPos);
-        const distance = direction.length();
+        _losDir.subVectors(toPos, fromPos);
+        const distance = _losDir.length();
         if (distance < 0.1) return true;
-        direction.normalize();
+        _losDir.normalize();
 
-        const ray = new THREE.Raycaster(fromPos, direction, 0.2, distance - 0.2);
-        const hits = ray.intersectObjects(this.shootableMeshes, false);
+        _losRay.set(fromPos, _losDir);
+        _losRay.near = 0.2;
+        _losRay.far = distance - 0.2;
+        const hits = _losRay.intersectObjects(this.shootableMeshes, false);
         return hits.length === 0;
     }
 
@@ -304,7 +318,10 @@ class GameMap {
 
         for (let i = 0; i < this.colliders.length; i++) {
             const c = this.colliders[i];
-            if (c.isRamp || c.max.y <= 0.1) continue;
+            if (c.max.y <= 0.1) continue;
+            // Ramp allows walking across surface if character's feet/base is near or above step top
+            if (c.isRamp && pos.y >= c.max.y - 0.5) continue;
+
             if (minX < c.max.x && maxX > c.min.x &&
                 minY < c.max.y && maxY > c.min.y &&
                 minZ < c.max.z && maxZ > c.min.z) {
@@ -318,11 +335,12 @@ class GameMap {
         const minY = pos.y + 0.1;
         const maxY = pos.y + height - 0.1;
 
-        // 2-pass iterative resolution for rock-solid corner & compound box depenetration
-        for (let pass = 0; pass < 2; pass++) {
+        // 3-pass iterative resolution for rock-solid corner & compound box depenetration
+        for (let pass = 0; pass < 3; pass++) {
             for (let i = 0; i < this.colliders.length; i++) {
                 const c = this.colliders[i];
-                if (c.isRamp || c.max.y <= 0.1) continue;
+                if (c.max.y <= 0.1) continue;
+                if (c.isRamp && pos.y >= c.max.y - 0.5) continue;
                 if (maxY <= c.min.y || minY >= c.max.y) continue;
 
                 const minX = pos.x - radius;
@@ -347,6 +365,49 @@ class GameMap {
                 }
             }
         }
+    }
+
+    getClosestCollisionNormal(pos, radius = 0.55, height = 1.75, outNormal = null) {
+        if (!outNormal) outNormal = new THREE.Vector3();
+        outNormal.set(0, 0, 0);
+
+        const minY = pos.y + 0.1;
+        const maxY = pos.y + height - 0.1;
+        let minOverlap = 999999;
+        let found = false;
+        const margin = 0.20; // Proximity margin for wall contact detection
+
+        for (let i = 0; i < this.colliders.length; i++) {
+            const c = this.colliders[i];
+            if (c.max.y <= 0.1) continue;
+            if (c.isRamp && pos.y >= c.max.y - 0.5) continue;
+            if (maxY <= c.min.y || minY >= c.max.y) continue;
+
+            const minX = pos.x - radius - margin;
+            const maxX = pos.x + radius + margin;
+            const minZ = pos.z - radius - margin;
+            const maxZ = pos.z + radius + margin;
+
+            if (maxX > c.min.x && minX < c.max.x &&
+                maxZ > c.min.z && minZ < c.max.z) {
+
+                const overlapLeft = (pos.x + radius) - c.min.x;
+                const overlapRight = c.max.x - (pos.x - radius);
+                const overlapFront = (pos.z + radius) - c.min.z;
+                const overlapBack = c.max.z - (pos.z - radius);
+
+                const currentMin = Math.min(overlapLeft, overlapRight, overlapFront, overlapBack);
+                if (currentMin < minOverlap) {
+                    minOverlap = currentMin;
+                    found = true;
+                    if (currentMin === overlapLeft) outNormal.set(-1, 0, 0);
+                    else if (currentMin === overlapRight) outNormal.set(1, 0, 0);
+                    else if (currentMin === overlapFront) outNormal.set(0, 0, -1);
+                    else if (currentMin === overlapBack) outNormal.set(0, 0, 1);
+                }
+            }
+        }
+        return found;
     }
 
     getSafeSpawnPoint(enemyPositions = [], minDistance = 20) {

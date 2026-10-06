@@ -1,15 +1,22 @@
-# KRUNKER ARENA // GEMINI & ANTIGRAVITY PROJECT INSTRUCTIONS
+# FPS STRIKER // GEMINI & ANTIGRAVITY PROJECT INSTRUCTIONS
 
-This file is automatically loaded by **Antigravity** and **Gemini CLI** upon opening this project directory on any drive (e.g. `C:\krunker-fps`, `F:\krunker-fps`, etc.). It serves as the primary system directive, context provider, and quality guardrail for all coding tasks.
+This file is automatically loaded by **Antigravity** and **Gemini CLI** upon opening this project directory on any drive. It serves as the primary system directive, context provider, and quality guardrail for all coding tasks.
+
+---
+
+## 🎯 Target Audience & Core Design Philosophy
+- **Target Audience**: Kids and teenagers aged **8 to 16–18** who love fast-paced competitive shooter games but do not own a PS5, high-end gaming PC, or money to purchase expensive titles. They are seeking high-octane, highly responsive, free browser and low-end hardware alternatives (reminiscent of Krunker / CS:GO / arcade classics). Casual adult players will also jump in for quick casual sessions.
+- **Future Multiplayer Roadmap**: Full multiplayer will be built on top of this entire codebase. All game state, entity tracking, physics tick cycles, and event dispatchers are cleanly decoupled with modular multiplayer network replication in mind.
+- **Performance Mandate**: Runs ultra-smoothly at **100 FPS** with zero stuttering or memory leaks on standard budget laptops and integrated graphics.
 
 ---
 
 ## 🎯 Project Overview & Tech Stack
-- **Game**: Krunker Arena — High-speed 3D browser-based voxel First-Person Shooter.
+- **Game**: FPS Striker — High-speed 3D browser-based voxel First-Person Shooter.
 - **Engine**: Three.js (r128), pure vanilla ES6 JavaScript, HTML5 Canvas 2D, CSS3 HUD.
 - **Audio**: Custom procedural Web Audio API synthesis engine (zero external `.mp3`/`.wav` dependencies).
 - **Physics & Movement**: Custom kinematic controller featuring slide-hopping (bunny hopping), air strafing, and AABB bounding box collision.
-- **Hosting / Portability**: 100% self-contained and portable. All paths are relative (`./assets`, `./js`). Works identically on `C:`, `F:`, Linux, macOS, or any web server.
+- **Hosting / Portability**: 100% self-contained and portable. All paths are relative (`./assets`, `./js`). Works identically on any drive, Linux, macOS, or any web server.
 
 ---
 
@@ -68,7 +75,7 @@ This file is automatically loaded by **Antigravity** and **Gemini CLI** upon ope
 | Path | Purpose |
 |---|---|
 | `index.html` | Game shell, HUD overlay containers, crosshairs, modal templates |
-| `css/style.css` | Cyberpunk/Krunker HUD, tactical bulging hit indicator, death screen |
+| `css/style.css` | Cyberpunk/Tactical HUD, tactical bulging hit indicator, death screen |
 | `js/main.js` | Game coordinator, Three.js renderer/camera, animation loop, lobby lifecycle |
 | `js/player.js` | Player movement physics, slide-hopping, input capture, health, damage receiver |
 | `js/weapons.js` | 4 weapon classes (AR, Sniper, SMG, Revolver), viewmodels, recoil, ADS |

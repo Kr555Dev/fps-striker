@@ -1,6 +1,6 @@
 # ⚡ Optimization Architecture & Algorithmic Engine Guide
 
-> **Document Scope**: This technical document provides a comprehensive breakdown of the core engine algorithms, rendering optimizations, memory management paradigms, and kinematic models that allow **Krunker Arena** to achieve locked **60–100+ FPS** directly in modern web browsers.
+> **Document Scope**: This technical document provides a comprehensive breakdown of the core engine algorithms, rendering optimizations, memory management paradigms, and kinematic models that allow **FPS Striker** to achieve locked **60–100+ FPS** directly in modern web browsers.
 
 ---
 
@@ -24,7 +24,7 @@ Browser-based 3D games are commonly throttled by three major bottlenecks:
 2. **DOM Layout Thrashing**: Updating `innerHTML` or reading layout properties (`offsetHeight`, `getBoundingClientRect`) during high-frequency animation frames.
 3. **Overdrawn WebGL Pipelines & Unbounded Raycasts**: Searching the full scene graph for raycast intersections every frame.
 
-Krunker Arena solves each bottleneck at the architectural level, resulting in sustained **100+ FPS** performance on modern GPUs and locked **60 FPS** on integrated hardware.
+FPS Striker solves each bottleneck at the architectural level, resulting in sustained **100+ FPS** performance on modern GPUs and locked **60 FPS** on integrated hardware.
 
 ---
 
@@ -154,7 +154,7 @@ Bot movement simulates human competitive play through four combined kinematic la
 
 ## 6. Slide-Hopping & Player Kinematics
 
-Authentic Krunker gameplay relies heavily on momentum-conserving bunny hops (slide-hopping):
+Authentic high-speed gameplay relies heavily on momentum-conserving bunny hops (slide-hopping):
 
 ### Kinematic Equations
 1. **Ground Friction**:

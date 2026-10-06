@@ -17,19 +17,23 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         self.send_header('Expires', '0')
         super().end_headers()
 
+class ThreadingServer(socketserver.ThreadingMixIn, http.server.HTTPServer):
+    daemon_threads = True
+    allow_reuse_address = True
+    request_queue_size = 128
+
 def run():
     os.chdir(DIRECTORY)
     for port in [8080, 8081, 8082, 3000]:
         try:
-            with socketserver.TCPServer(("", port), Handler) as httpd:
+            with ThreadingServer(("", port), Handler) as httpd:
                 url = f"http://localhost:{port}"
                 print("=" * 60)
-                print("  [*] KRUNKER ARENA // 3D FAST-PACED VOXEL FPS [*]")
+                print("  [*] FPS STRIKER // 3D FAST-PACED VOXEL FPS [*]")
                 print("=" * 60)
                 print(f"  Server running at: {url}")
                 print("  Press Ctrl+C to stop.")
                 print("=" * 60)
-                webbrowser.open(url)
                 httpd.serve_forever()
                 break
         except OSError:

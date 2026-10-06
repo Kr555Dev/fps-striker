@@ -1,6 +1,6 @@
 # 🛠️ Tech Stack, System Requirements & Dependency Specifications
 
-> **Document Scope**: Complete breakdown of the technology stack, hardware/browser requirements, runtime and development dependencies, and offline architecture for **Krunker Arena**.
+> **Document Scope**: Complete breakdown of the technology stack, hardware/browser requirements, runtime and development dependencies, and offline architecture for **FPS Striker**.
 
 ---
 

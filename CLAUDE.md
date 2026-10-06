@@ -1,7 +1,12 @@
 # CLAUDE.md // Anthropic & Claude Code Project Guide
 
 ## Project Summary
-Krunker Arena is a high-performance browser-based 3D voxel First-Person Shooter inspired by Krunker.io. It runs in Three.js (r128) with pure vanilla ES6 JavaScript, procedural Web Audio API sound synthesis, and custom kinematic movement physics (slide-hopping, bunny hopping).
+FPS Striker is a high-performance browser-based 3D voxel First-Person Shooter. It runs in Three.js (r128) with pure vanilla ES6 JavaScript, procedural Web Audio API sound synthesis, and custom kinematic movement physics (slide-hopping, bunny hopping).
+
+## 🎯 Target Audience & Core Design Philosophy
+- **Target Audience**: Kids and teenagers aged **8 to 16–18** who love fast-paced competitive shooter games but do not own a PS5, high-end gaming PC, or money to purchase expensive titles. They are seeking high-octane, highly responsive, free browser and low-end hardware alternatives (reminiscent of Krunker / CS:GO / arcade classics). Casual adult players will also jump in for quick casual sessions.
+- **Future Multiplayer Roadmap**: Full multiplayer will be built on top of this entire codebase. All game state, entity tracking, physics tick cycles, and event dispatchers are cleanly decoupled with modular multiplayer network replication in mind.
+- **Performance Mandate**: Runs ultra-smoothly at **100 FPS** with zero stuttering or memory leaks on standard budget laptops and integrated graphics.
 
 ## Primary Commands
 - Launch local server: `python serve.py` or double-click `start.bat`
