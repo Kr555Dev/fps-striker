@@ -1285,6 +1285,10 @@ class WeaponSystem {
             this.weaponMeshes[k].root.visible = (k === key);
         });
 
+        if (this.audio && typeof this.audio.playSwitchWeapon === 'function') {
+            this.audio.playSwitchWeapon();
+        }
+
         if (window.uiManager) {
             window.uiManager.updateWeaponUI(this.currentWeapon, this.ammoState[key], this.ammoState);
             window.uiManager.setActiveHotbarSlot(key);
@@ -1292,10 +1296,11 @@ class WeaponSystem {
                 if (this.ammoState[key].reserve > 0) {
                     window.uiManager.showReloadPrompt();
                 } else {
-                    window.uiManager.showAmmoWarning("OUT OF AMMO");
+                    window.uiManager.showNoAmmoAlert();
                 }
             } else {
                 window.uiManager.hideReloadPrompt();
+                window.uiManager.hideNoAmmoAlert();
             }
         }
     }
@@ -1322,6 +1327,8 @@ class WeaponSystem {
         if (window.uiManager) {
             window.uiManager.updateWeaponUI(this.currentWeapon, this.ammoState[this.currentWeaponKey], this.ammoState);
             window.uiManager.hideReloadPrompt();
+            window.uiManager.hideLowAmmoWarning();
+            window.uiManager.hideNoAmmoAlert();
         }
     }
 
@@ -1343,8 +1350,11 @@ class WeaponSystem {
             }
             if (window.uiManager) {
                 window.uiManager.updateWeaponUI(this.currentWeapon, ammo, this.ammoState);
-                const hint = ammo.clip === 0 ? "OUT OF AMMO" : "NO RESERVE";
-                window.uiManager.showAmmoWarning(hint);
+                if (ammo.clip === 0) {
+                    window.uiManager.showNoAmmoAlert();
+                } else {
+                    window.uiManager.showAmmoWarning("NO RESERVE");
+                }
             }
             return false;
         }
@@ -1354,6 +1364,7 @@ class WeaponSystem {
 
         if (window.uiManager) {
             window.uiManager.hideReloadPrompt();
+            window.uiManager.hideLowAmmoWarning();
         }
 
         // Stage 1: Mag release
@@ -1483,7 +1494,7 @@ class WeaponSystem {
                     }
                     if (window.uiManager) {
                         window.uiManager.updateWeaponUI(this.currentWeapon, ammo, this.ammoState);
-                        window.uiManager.showAmmoWarning("OUT OF AMMO");
+                        window.uiManager.showNoAmmoAlert();
                     }
                 }
                 return;
@@ -1498,6 +1509,14 @@ class WeaponSystem {
         this.lastShotTime = now;
 
         this.audio.playShoot(this.currentWeapon.id);
+
+        // Low-ammo tactical warning: subtle tactile click when reaching last 25% of magazine
+        const lowAmmoThreshold = Math.ceil(this.currentWeapon.magSize * 0.25);
+        if (ammo.clip <= lowAmmoThreshold && ammo.clip > 0) {
+            if (this.audio && typeof this.audio.playLowAmmoWarning === 'function') {
+                this.audio.playLowAmmoWarning(ammo.clip, lowAmmoThreshold);
+            }
+        }
 
         this.recoilSpring.z += this.currentWeapon.recoilKick;
         this.recoilRot.x += this.currentWeapon.recoilPitch;
@@ -1520,9 +1539,11 @@ class WeaponSystem {
             window.uiManager.updateWeaponUI(this.currentWeapon, ammo, this.ammoState);
             if (ammo.clip <= 0) {
                 if (ammo.reserve > 0) {
-                    window.uiManager.showReloadPrompt();
+                    // Smart auto-reload on empty magazine when reserves are available
+                    this.reload();
                 } else {
-                    window.uiManager.showAmmoWarning("OUT OF AMMO");
+                    // Depleted: do NOT auto-reload, trigger stylized NO AMMO alert badge
+                    window.uiManager.showNoAmmoAlert();
                 }
             }
         }
