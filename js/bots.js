@@ -1690,13 +1690,47 @@ class BotManager {
                 outArray.push({
                     mesh: bot.headMesh,
                     bot: bot,
-                    isHead: true
+                    isHead: true,
+                    isLimb: false
                 });
                 outArray.push({
                     mesh: bot.bodyMesh,
                     bot: bot,
-                    isHead: false
+                    isHead: false,
+                    isLimb: false
                 });
+                if (bot.leftArm) {
+                    outArray.push({
+                        mesh: bot.leftArm,
+                        bot: bot,
+                        isHead: false,
+                        isLimb: true
+                    });
+                }
+                if (bot.rightArm) {
+                    outArray.push({
+                        mesh: bot.rightArm,
+                        bot: bot,
+                        isHead: false,
+                        isLimb: true
+                    });
+                }
+                if (bot.leftLeg) {
+                    outArray.push({
+                        mesh: bot.leftLeg,
+                        bot: bot,
+                        isHead: false,
+                        isLimb: true
+                    });
+                }
+                if (bot.rightLeg) {
+                    outArray.push({
+                        mesh: bot.rightLeg,
+                        bot: bot,
+                        isHead: false,
+                        isLimb: true
+                    });
+                }
             }
         });
     }

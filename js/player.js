@@ -139,6 +139,12 @@ class PlayerController {
             this.yawObject.rotation.y -= (e.movementX || 0) * effectiveSens;
             this.pitchObject.rotation.x -= (e.movementY || 0) * effectiveSens;
 
+            // CS2 Mouse Pull-Down Spray Control: pulling down against recoil actively counters camera climb
+            if ((e.movementY || 0) > 0 && window.weaponSystem && window.weaponSystem.cameraRecoil && window.weaponSystem.cameraRecoil.pitch > 0) {
+                const pullComp = (e.movementY || 0) * effectiveSens * 0.75;
+                window.weaponSystem.cameraRecoil.pitch = Math.max(0, window.weaponSystem.cameraRecoil.pitch - pullComp);
+            }
+
             const maxPitch = Math.PI / 2 - 0.02;
             this.pitchObject.rotation.x = Math.max(-maxPitch, Math.min(maxPitch, this.pitchObject.rotation.x));
         });
@@ -529,6 +535,13 @@ class PlayerController {
         this.pitchObject.rotation.z = this.cameraTilt + shake.roll;
         this.camera.position.x = shake.x;
         this.camera.position.y = shake.y;
+
+        // Tactical Weapon View Recoil (Pitch climb & yaw weave)
+        const ws = window.weaponSystem;
+        const recoilPitch = (ws && ws.cameraRecoil) ? ws.cameraRecoil.pitch : 0;
+        const recoilYaw = (ws && ws.cameraRecoil) ? ws.cameraRecoil.yaw : 0;
+        this.camera.rotation.x = recoilPitch;
+        this.camera.rotation.y = recoilYaw;
 
         if (this.onGround && isMoving && !this.isSliding) {
             this.camera.position.y += Math.sin(this.bobTimer) * 0.035;

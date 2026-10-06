@@ -706,7 +706,7 @@ class UIManager {
     }
 
     triggerCrosshairRecoil(amount = 4.0) {
-        this.crosshairRecoilImpulse = Math.min(10.0, this.crosshairRecoilImpulse + amount);
+        this.crosshairRecoilImpulse = Math.min(18.0, this.crosshairRecoilImpulse + amount);
     }
 
     updateCrosshairBloom(dt) {

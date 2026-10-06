@@ -14,6 +14,11 @@ const _muzzleWorld = new THREE.Vector3();
 const _tempVec = new THREE.Vector3();
 const _wallNormal = new THREE.Vector3();
 const _camWorld = new THREE.Vector3();
+const _tempBotPos = new THREE.Vector3();
+const _toBotVec = new THREE.Vector3();
+const _rayDir = new THREE.Vector3();
+const _favouredHitPos = new THREE.Vector3();
+const _losRaycaster = new THREE.Raycaster();
 
 class WeaponSystem {
     constructor(camera, scene, player, audio, particles) {
@@ -26,7 +31,7 @@ class WeaponSystem {
         this.viewmodelRoot = new THREE.Object3D();
         this.camera.add(this.viewmodelRoot);
 
-        // Weapon Definitions
+        // Weapon Definitions with CS2 Recoil, Burst Dynamics & Favoured Aim
         this.weapons = {
             ar: {
                 id: 'ar',
@@ -42,11 +47,22 @@ class WeaponSystem {
                 headshotMult: 1.90,
                 recoilPitch: 0.038,
                 recoilKick: 0.045,
-                spread: 0.009,
+                spread: 0.005,
+                adsSpread: 0.002,
                 adsFov: 55,
                 hipPos: new THREE.Vector3(0.18, -0.18, -0.40),
                 adsPos: new THREE.Vector3(0.0, -0.118, -0.28),
-                reloadTime: 1.3
+                reloadTime: 1.3,
+                // Recoil & Burst Dynamics
+                cameraKickPitch: 0.016,
+                cameraKickYaw: 0.007,
+                recoilRecoverySpeed: 18,
+                burstBloomPerShot: 0.0022,
+                maxBurstBloom: 0.026,
+                burstResetWindow: 260,
+                // Close-range Favoured Aim Envelope (3.5% tolerance up to 6.5m)
+                favouredRange: 6.5,
+                favouredTolerance: 0.035
             },
             sniper: {
                 id: 'sniper',
@@ -60,13 +76,24 @@ class WeaponSystem {
                 auto: false,
                 damage: 105,
                 headshotMult: 1.80,
-                recoilPitch: 0.11,
-                recoilKick: 0.11,
-                spread: 0.03,
+                recoilPitch: 0.12,
+                recoilKick: 0.12,
+                spread: 0.035,
+                adsSpread: 0.0,
                 adsFov: 20,
                 hipPos: new THREE.Vector3(0.18, -0.18, -0.42),
                 adsPos: new THREE.Vector3(0.0, -0.118, -0.28),
-                reloadTime: 2.0
+                reloadTime: 2.0,
+                // Recoil & Optical Shudder
+                cameraKickPitch: 0.082,
+                cameraKickYaw: 0.004,
+                recoilRecoverySpeed: 9,
+                burstBloomPerShot: 0.0,
+                maxBurstBloom: 0.0,
+                burstResetWindow: 400,
+                // Close-range Favoured Aim (DISABLED - 100% skill required)
+                favouredRange: 0.0,
+                favouredTolerance: 0.0
             },
             smg: {
                 id: 'smg',
@@ -82,11 +109,22 @@ class WeaponSystem {
                 headshotMult: 1.4,
                 recoilPitch: 0.028,
                 recoilKick: 0.032,
-                spread: 0.015,
+                spread: 0.009,
+                adsSpread: 0.004,
                 adsFov: 60,
                 hipPos: new THREE.Vector3(0.16, -0.17, -0.36),
                 adsPos: new THREE.Vector3(0.0, -0.115, -0.26),
-                reloadTime: 1.1
+                reloadTime: 1.1,
+                // Recoil & Burst Dynamics
+                cameraKickPitch: 0.011,
+                cameraKickYaw: 0.009,
+                recoilRecoverySpeed: 24,
+                burstBloomPerShot: 0.0018,
+                maxBurstBloom: 0.032,
+                burstResetWindow: 200,
+                // Close-range Favoured Aim Envelope (5.0% tolerance up to 9.0m)
+                favouredRange: 9.0,
+                favouredTolerance: 0.050
             },
             revolver: {
                 id: 'revolver',
@@ -100,13 +138,24 @@ class WeaponSystem {
                 auto: false,
                 damage: 68,
                 headshotMult: 1.60,
-                recoilPitch: 0.075,
-                recoilKick: 0.065,
-                spread: 0.008,
+                recoilPitch: 0.11,
+                recoilKick: 0.085,
+                spread: 0.003,
+                adsSpread: 0.001,
                 adsFov: 62,
                 hipPos: new THREE.Vector3(0.15, -0.17, -0.34),
                 adsPos: new THREE.Vector3(0.0, -0.112, -0.26),
-                reloadTime: 1.6
+                reloadTime: 1.6,
+                // CS2 Deagle-style Snappy Recoil & Heavy Recovery
+                cameraKickPitch: 0.058,
+                cameraKickYaw: 0.010,
+                recoilRecoverySpeed: 11,
+                burstBloomPerShot: 0.035,
+                maxBurstBloom: 0.055,
+                burstResetWindow: 320,
+                // Close-range Favoured Aim Envelope (2.5% tolerance up to 4.5m)
+                favouredRange: 4.5,
+                favouredTolerance: 0.025
             },
             shotgun: {
                 id: 'shotgun',
@@ -120,14 +169,24 @@ class WeaponSystem {
                 auto: false,
                 damage: 14,
                 headshotMult: 2.0,
-                recoilPitch: 0.14,
-                recoilKick: 0.13,
+                recoilPitch: 0.16,
+                recoilKick: 0.18,
                 spread: 0.048,
                 adsSpread: 0.024,
                 adsFov: 65,
                 hipPos: new THREE.Vector3(0.18, -0.19, -0.42),
                 adsPos: new THREE.Vector3(0.0, -0.125, -0.30),
-                reloadTime: 1.8
+                reloadTime: 1.8,
+                // Heavy Concussive Recoil
+                cameraKickPitch: 0.088,
+                cameraKickYaw: 0.012,
+                recoilRecoverySpeed: 13,
+                burstBloomPerShot: 0.0,
+                maxBurstBloom: 0.0,
+                burstResetWindow: 450,
+                // Close-range Favoured Aim Envelope (7.0% tolerance up to 8.0m)
+                favouredRange: 8.0,
+                favouredTolerance: 0.070
             }
         };
 
@@ -147,6 +206,9 @@ class WeaponSystem {
         // Recoil & Sway
         this.recoilSpring = new THREE.Vector3();
         this.recoilRot = new THREE.Vector3();
+        this.cameraRecoil = { pitch: 0, yaw: 0 };
+        this.burstCount = 0;
+        this.lastBurstShotTime = 0;
         this.swayPos = new THREE.Vector3();
         this.targetSway = new THREE.Vector3();
 
@@ -1282,6 +1344,11 @@ class WeaponSystem {
         this.currentWeaponIndex = this.weaponKeys.indexOf(key);
         this.currentWeapon = this.weapons[key];
 
+        // Reset burst count and camera recoil on weapon swap
+        this.burstCount = 0;
+        this.cameraRecoil.pitch = 0;
+        this.cameraRecoil.yaw = 0;
+
         Object.keys(this.weaponMeshes).forEach(k => {
             this.weaponMeshes[k].root.visible = (k === key);
         });
@@ -1423,14 +1490,13 @@ class WeaponSystem {
         });
     }
 
-    calculateDamage(weaponKey, distance, isHeadshot) {
+    calculateDamage(weaponKey, distance, isHeadshot = false, isLimb = false) {
+        let dmg = 0;
         if (weaponKey === 'ar') {
             // Base Body Damage: 28 HP
             // Headshot Multiplier: 1.90 (Math.round(28 * 1.90) = 53 HP). (2 headshots = 106 HP -> KILL)
-            return isHeadshot ? Math.round(28 * 1.90) : 28;
-        }
-
-        if (weaponKey === 'shotgun') {
+            dmg = isHeadshot ? Math.round(28 * 1.90) : 28;
+        } else if (weaponKey === 'shotgun') {
             // Per pellet damage based on distance d (meters) - Scaled 3-4x for realistic combat distance:
             // Point Blank (d < 8m): Base damage 14 per pellet (8 * 14 = 112 body -> 1-shot kill)
             // Close Quarters (8m <= d <= 18m): Base damage 7 per pellet (8 * 7 = 56 body, 8 * 14 = 112 headshot)
@@ -1445,38 +1511,38 @@ class WeaponSystem {
                 const factor = Math.exp(-0.12 * (distance - 18.0));
                 basePelletDmg = Math.max(1, Math.round(7 * factor));
             }
-            return isHeadshot ? Math.round(basePelletDmg * 2.0) : basePelletDmg;
-        }
-
-        if (weaponKey === 'revolver') {
+            dmg = isHeadshot ? Math.round(basePelletDmg * 2.0) : basePelletDmg;
+        } else if (weaponKey === 'revolver') {
             // Base Body Damage: 68 HP (2 body shots to kill)
             // Headshot Multiplier: 1.60 -> Math.round(68 * 1.60) = 109 HP
             // Zero headshot damage falloff at any distance (any headshot deals >= 100 HP -> 1-shot kill)
-            return isHeadshot ? Math.round(68 * 1.60) : 68;
-        }
-
-        if (weaponKey === 'sniper') {
+            dmg = isHeadshot ? Math.round(68 * 1.60) : 68;
+        } else if (weaponKey === 'sniper') {
             // Base Body Damage (d <= 35m): 105 HP -> 1-shot body kill
             // Falloff (d > 35m): Body shot damage drops to 85 HP (leaves 15 HP)
             // Headshot Multiplier: 1.80 (Deals 153+ HP at all distances -> 1-shot headshot at any distance)
             const baseDmg = distance <= 35.0 ? 105 : 85;
-            return isHeadshot ? Math.round(baseDmg * 1.80) : baseDmg;
-        }
-
-        if (weaponKey === 'smg') {
+            dmg = isHeadshot ? Math.round(baseDmg * 1.80) : baseDmg;
+        } else if (weaponKey === 'smg') {
             // Base Damage (d <= 15m): 18 HP
             // Falloff (d > 20m): Rapid linear drop from 18 at 20m to 7 at 30m+, min 7 HP
             // Headshot multiplier: 1.4 (round(dmg * 1.4))
-            let dmg = 18;
+            let baseDmg = 18;
             if (distance > 20.0) {
                 const t = Math.min(1.0, (distance - 20.0) / 10.0);
-                dmg = Math.max(7, Math.round(18.0 - 11.0 * t));
+                baseDmg = Math.max(7, Math.round(18.0 - 11.0 * t));
             }
-            return isHeadshot ? Math.round(dmg * 1.4) : dmg;
+            dmg = isHeadshot ? Math.round(baseDmg * 1.4) : baseDmg;
+        } else {
+            const weapon = this.weapons[weaponKey] || this.currentWeapon;
+            dmg = Math.round(weapon.damage * (isHeadshot ? weapon.headshotMult : 1.0));
         }
 
-        const weapon = this.weapons[weaponKey] || this.currentWeapon;
-        return Math.round(weapon.damage * (isHeadshot ? weapon.headshotMult : 1.0));
+        // Option B: 85% Limb Damage Multiplier for arms and legs
+        if (isLimb && !isHeadshot) {
+            dmg = Math.max(1, Math.round(dmg * 0.85));
+        }
+        return dmg;
     }
 
     shoot() {
@@ -1512,6 +1578,14 @@ class WeaponSystem {
         ammo.clip--;
         this.lastShotTime = now;
 
+        // Burst Tracking: Reset if previous burst interval expired
+        const burstWindow = this.currentWeapon.burstResetWindow || 260;
+        if (now - this.lastBurstShotTime > burstWindow) {
+            this.burstCount = 0;
+        }
+        this.burstCount++;
+        this.lastBurstShotTime = now;
+
         this.audio.playShoot(this.currentWeapon.id);
 
         // Low-ammo tactical warning: subtle tactile click when reaching last 25% of magazine
@@ -1522,11 +1596,25 @@ class WeaponSystem {
             }
         }
 
+        // Camera Recoil Impulse (CS2-style camera kick)
+        const kickPitch = this.currentWeapon.cameraKickPitch || 0.02;
+        const kickYaw = (this.currentWeapon.cameraKickYaw || 0.005) * (Math.random() > 0.5 ? 1 : -1);
+        this.cameraRecoil.pitch = Math.min(0.28, this.cameraRecoil.pitch + kickPitch);
+        this.cameraRecoil.yaw = Math.max(-0.08, Math.min(0.08, this.cameraRecoil.yaw + kickYaw));
+
+        // Viewmodel Kick & Rotation
         this.recoilSpring.z += this.currentWeapon.recoilKick;
         this.recoilRot.x += this.currentWeapon.recoilPitch;
-        this.particles.addTrauma(this.currentWeapon.recoilPitch * 1.4);
 
-        if (window.uiManager) window.uiManager.expandCrosshair();
+        // Screen Micro-Trauma Shake (scales with weapon caliber & continuous burst)
+        const traumaBase = this.currentWeapon.id === 'shotgun' ? 0.45 : (this.currentWeapon.id === 'revolver' ? 0.32 : (this.currentWeapon.id === 'sniper' ? 0.38 : 0.09));
+        const burstTraumaBonus = Math.min(0.15, this.burstCount * 0.012);
+        this.particles.addTrauma(traumaBase + burstTraumaBonus);
+
+        if (window.uiManager) {
+            const bloomFactor = Math.min(16, 4.0 + this.burstCount * 1.4);
+            window.uiManager.expandCrosshair(bloomFactor);
+        }
 
         const isHyper = !!(this.player && this.player.boosters && this.player.boosters.damage > 0);
         this.flashTimer = 0.045;
@@ -1599,9 +1687,10 @@ class WeaponSystem {
 
                     if (botData) {
                         const isHeadshot = !!botData.isHead;
+                        const isLimb = !!botData.isLimb;
                         this.camera.getWorldPosition(_camWorld);
                         const dist = _camWorld.distanceTo(hitPos);
-                        const pelletDmg = Math.round(this.calculateDamage('shotgun', dist, isHeadshot) * damageMult);
+                        const pelletDmg = Math.round(this.calculateDamage('shotgun', dist, isHeadshot, isLimb) * damageMult);
 
                         this.particles.createHitSplatter(hitPos, isHeadshot);
 
@@ -1625,6 +1714,68 @@ class WeaponSystem {
                 }
             }
 
+            // Close-Range Breacher Tolerance: If point-blank shotgun shot missed all pellets, rescue near-miss
+            if (botHits.size === 0 && this.currentWeapon.favouredRange > 0 && window.botManager) {
+                this.camera.getWorldPosition(_camWorld);
+                this.camera.getWorldDirection(_rayDir);
+
+                let bestBot = null;
+                let bestAngle = Infinity;
+                let bestDist = Infinity;
+
+                for (let i = 0; i < window.botManager.bots.length; i++) {
+                    const b = window.botManager.bots[i];
+                    if (b.isDead || !b.meshRoot || !b.meshRoot.visible) continue;
+
+                    const toBotX = b.position.x - _camWorld.x;
+                    const toBotZ = b.position.z - _camWorld.z;
+                    const hDist = Math.hypot(toBotX, toBotZ);
+                    if (hDist > this.currentWeapon.favouredRange) continue;
+
+                    const rayDirH = Math.hypot(_rayDir.x, _rayDir.z);
+                    const t = rayDirH > 0.001 ? (hDist / rayDirH) : hDist;
+                    const yRay = _camWorld.y + t * _rayDir.y;
+                    const botBaseY = b.position.y || 0;
+                    const targetY = Math.max(botBaseY + 0.2, Math.min(botBaseY + 1.85, yRay));
+
+                    _tempBotPos.set(b.position.x, targetY, b.position.z);
+                    const d = _camWorld.distanceTo(_tempBotPos);
+                    if (d > this.currentWeapon.favouredRange) continue;
+
+                    _toBotVec.subVectors(_tempBotPos, _camWorld).normalize();
+                    const dot = _rayDir.dot(_toBotVec);
+                    if (dot <= 0.82) continue;
+
+                    const angle = Math.acos(Math.max(-1, Math.min(1, dot)));
+                    const maxAllowedAngle = this.currentWeapon.favouredTolerance * (1.0 - (d / this.currentWeapon.favouredRange));
+                    if (angle <= maxAllowedAngle) {
+                        _losRaycaster.set(_camWorld, _toBotVec);
+                        const obsHits = _losRaycaster.intersectObjects(this.player.map.shootableMeshes, false);
+                        if (obsHits.length > 0 && obsHits[0].distance < d - 0.25) continue;
+
+                        if (angle < bestAngle) {
+                            bestAngle = angle;
+                            bestBot = b;
+                            bestDist = d;
+                            _favouredHitPos.copy(_tempBotPos);
+                        }
+                    }
+                }
+
+                if (bestBot) {
+                    const proxPellets = 4;
+                    const pelletDmg = Math.round(this.calculateDamage('shotgun', bestDist, false, false) * damageMult);
+                    const totalDamage = pelletDmg * proxPellets;
+                    botHits.set(bestBot, {
+                        bot: bestBot,
+                        totalDamage: totalDamage,
+                        hadHeadshot: false,
+                        hitPos: _favouredHitPos.clone()
+                    });
+                    this.particles.createHitSplatter(_favouredHitPos, false);
+                }
+            }
+
             if (botHits.size > 0) {
                 let anyHeadshot = false;
                 botHits.forEach(entry => {
@@ -1641,7 +1792,10 @@ class WeaponSystem {
 
         } else {
             // Single bullet weapons: AR, Sniper, SMG, Revolver
-            const spread = this.isAiming ? 0 : this.currentWeapon.spread;
+            const baseSpread = this.isAiming ? (this.currentWeapon.adsSpread || 0) : this.currentWeapon.spread;
+            const bloom = Math.min(this.currentWeapon.maxBurstBloom || 0, Math.max(0, this.burstCount - 1) * (this.currentWeapon.burstBloomPerShot || 0));
+            const spread = baseSpread + bloom;
+
             const spreadX = (Math.random() - 0.5) * spread;
             const spreadY = (Math.random() - 0.5) * spread;
 
@@ -1651,7 +1805,78 @@ class WeaponSystem {
             this.ejectShellCasing(_muzzleWorld);
 
             const hits = _raycaster.intersectObjects(candidateMeshes, false);
-            const validHit = hits.length > 0 ? hits[0] : null;
+            let validHit = hits.length > 0 ? hits[0] : null;
+            let hitBotData = validHit ? botHitboxes.find(b => b.mesh === validHit.object) : null;
+            let isFavouredHit = false;
+
+            // Hybrid Favoured Aim (Close-Range Proximity Magnetism - Option B)
+            if (!hitBotData && this.currentWeapon.favouredRange > 0 && this.currentWeapon.favouredTolerance > 0 && window.botManager) {
+                this.camera.getWorldPosition(_camWorld);
+                _rayDir.copy(_raycaster.ray.direction).normalize();
+
+                let bestBot = null;
+                let bestAngle = Infinity;
+                let bestDist = Infinity;
+
+                for (let i = 0; i < window.botManager.bots.length; i++) {
+                    const b = window.botManager.bots[i];
+                    if (b.isDead || !b.meshRoot || !b.meshRoot.visible) continue;
+
+                    const toBotX = b.position.x - _camWorld.x;
+                    const toBotZ = b.position.z - _camWorld.z;
+                    const hDist = Math.hypot(toBotX, toBotZ);
+                    if (hDist > this.currentWeapon.favouredRange) continue;
+
+                    const rayDirH = Math.hypot(_rayDir.x, _rayDir.z);
+                    const t = rayDirH > 0.001 ? (hDist / rayDirH) : hDist;
+                    const yRay = _camWorld.y + t * _rayDir.y;
+                    const botBaseY = b.position.y || 0;
+                    const targetY = Math.max(botBaseY + 0.2, Math.min(botBaseY + 1.85, yRay));
+
+                    _tempBotPos.set(b.position.x, targetY, b.position.z);
+                    const d = _camWorld.distanceTo(_tempBotPos);
+                    if (d > this.currentWeapon.favouredRange) continue;
+
+                    _toBotVec.subVectors(_tempBotPos, _camWorld).normalize();
+                    const dot = _rayDir.dot(_toBotVec);
+                    if (dot <= 0.82) continue; // Forward cone test
+
+                    const angle = Math.acos(Math.max(-1, Math.min(1, dot)));
+                    // Linear falloff: maximum tolerance at point-blank, 0 at favouredRange
+                    const maxAllowedAngle = this.currentWeapon.favouredTolerance * (1.0 - (d / this.currentWeapon.favouredRange));
+                    if (angle <= maxAllowedAngle) {
+                        // Anti-Wall / Obstacle Line-of-Sight verification
+                        _losRaycaster.set(_camWorld, _toBotVec);
+                        const obsHits = _losRaycaster.intersectObjects(this.player.map.shootableMeshes, false);
+                        if (obsHits.length > 0 && obsHits[0].distance < d - 0.25) {
+                            // Wall blocks line of sight: disqualified!
+                            continue;
+                        }
+
+                        if (angle < bestAngle) {
+                            bestAngle = angle;
+                            bestBot = b;
+                            bestDist = d;
+                            _favouredHitPos.copy(_tempBotPos);
+                        }
+                    }
+                }
+
+                if (bestBot) {
+                    hitBotData = {
+                        bot: bestBot,
+                        isHead: false,
+                        isLimb: false,
+                        mesh: bestBot.bodyMesh
+                    };
+                    validHit = {
+                        point: _favouredHitPos.clone(),
+                        object: bestBot.bodyMesh
+                    };
+                    isFavouredHit = true;
+                }
+            }
+
             const hitPos = validHit ? validHit.point : _tempVec.copy(_raycaster.ray.origin).addScaledVector(_raycaster.ray.direction, 150);
 
             const defaultTracer = this.currentWeaponKey === 'sniper' ? 0xff3355 : (this.currentWeaponKey === 'revolver' ? 0xffaa22 : 0x00ffcc);
@@ -1659,14 +1884,12 @@ class WeaponSystem {
             this.particles.createTracer(_muzzleWorld, hitPos, tracerColor);
 
             if (validHit) {
-                const hitObject = validHit.object;
-                const botData = botHitboxes.find(b => b.mesh === hitObject);
-
-                if (botData) {
-                    const isHeadshot = !!botData.isHead;
+                if (hitBotData) {
+                    const isHeadshot = isFavouredHit ? false : !!hitBotData.isHead;
+                    const isLimb = isFavouredHit ? false : !!hitBotData.isLimb;
                     this.camera.getWorldPosition(_camWorld);
                     const dist = _camWorld.distanceTo(hitPos);
-                    const damage = Math.round(this.calculateDamage(this.currentWeaponKey, dist, isHeadshot) * damageMult);
+                    const damage = Math.round(this.calculateDamage(this.currentWeaponKey, dist, isHeadshot, isLimb) * damageMult);
 
                     this.audio.playHit(isHeadshot);
                     this.particles.createHitSplatter(hitPos, isHeadshot);
@@ -1676,7 +1899,7 @@ class WeaponSystem {
                         window.uiManager.triggerHitmarker(isHeadshot);
                     }
 
-                    botData.bot.takeDamage(damage, this.player, isHeadshot, this.currentWeapon.name);
+                    hitBotData.bot.takeDamage(damage, this.player, isHeadshot, this.currentWeapon.name);
                 } else {
                     const normal = validHit.face ? validHit.face.normal : _wallNormal.set(0, 1, 0);
                     this.particles.createWallImpact(hitPos, normal);
@@ -1688,6 +1911,19 @@ class WeaponSystem {
     update(dt) {
         if (this.isFiring && this.currentWeapon.auto) {
             this.shoot();
+        }
+
+        // Camera Recoil Recovery (CS2-style exponential return)
+        const recoilRecovery = this.currentWeapon.recoilRecoverySpeed || 16;
+        this.cameraRecoil.pitch *= Math.exp(-recoilRecovery * dt);
+        this.cameraRecoil.yaw *= Math.exp(-recoilRecovery * dt);
+        if (Math.abs(this.cameraRecoil.pitch) < 0.0001) this.cameraRecoil.pitch = 0;
+        if (Math.abs(this.cameraRecoil.yaw) < 0.0001) this.cameraRecoil.yaw = 0;
+
+        // Reset burst count when trigger released and reset window passed
+        const now = performance.now();
+        if (!this.isFiring && (now - this.lastBurstShotTime > (this.currentWeapon.burstResetWindow || 260))) {
+            this.burstCount = 0;
         }
 
         if (this.isReloading) {
