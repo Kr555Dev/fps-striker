@@ -987,11 +987,20 @@ canvas#renderCanvas {
     width: 100%;
     height: 100%;
     z-index: 20;
+    overflow-y: auto;
+    overflow-x: hidden;
+    scroll-behavior: smooth;
+    pointer-events: auto;
+    background: transparent;
+}
+
+.lobby-hero-screen {
+    width: 100%;
+    min-height: 100vh;
     display: flex;
     flex-direction: column;
     justify-content: space-between;
-    pointer-events: auto;
-    background: transparent;
+    position: relative;
 }
 
 .lobby-top-bar {
@@ -2337,6 +2346,515 @@ tr.player-row {
 @keyframes playerCardCritPulse {
     0% { border-color: rgba(255, 0, 68, 0.6); }
     100% { border-color: rgba(255, 0, 68, 1); box-shadow: 0 0 22px rgba(255, 0, 68, 0.75); }
+}
+
+/* =========================================================
+   ON-PAGE SEO, FAQ ACCORDION & SITE FOOTER STYLES
+   ========================================================= */
+
+/* Scroll Prompt Indicator in Lobby */
+.lobby-scroll-hint {
+    text-align: center;
+    padding: 12px 20px;
+    margin: 0 auto;
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    color: #00ffcc;
+    text-transform: uppercase;
+    cursor: pointer;
+    text-shadow: 0 0 8px rgba(0, 255, 204, 0.6);
+    animation: bounceChevron 1.6s infinite;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(11, 14, 20, 0.65);
+    border: 1px solid rgba(0, 255, 204, 0.25);
+    border-radius: 20px;
+    backdrop-filter: blur(4px);
+    transition: background 0.2s, transform 0.2s;
+}
+
+.lobby-scroll-hint:hover {
+    background: rgba(0, 255, 204, 0.15);
+    transform: translateY(2px);
+}
+
+@keyframes bounceChevron {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(6px); }
+}
+
+/* Mobile Responsiveness Alert */
+.mobile-device-alert {
+    display: none;
+    background: rgba(250, 204, 21, 0.12);
+    border: 1px solid #facc15;
+    border-radius: 8px;
+    padding: 12px 18px;
+    margin: 12px 20px;
+    color: #facc15;
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 14px;
+    font-weight: 600;
+    text-align: center;
+    backdrop-filter: blur(6px);
+}
+
+@media (max-width: 900px), (pointer: coarse) {
+    .mobile-device-alert {
+        display: block;
+    }
+}
+
+/* Main SEO Content Container */
+.seo-content-section {
+    width: 100%;
+    background: rgba(10, 13, 20, 0.96);
+    border-top: 1px solid rgba(0, 255, 204, 0.25);
+    padding: 60px 24px;
+    box-shadow: 0 -20px 50px rgba(0, 0, 0, 0.8);
+    position: relative;
+    z-index: 25;
+}
+
+.seo-container {
+    max-width: 1080px;
+    margin: 0 auto;
+}
+
+.seo-badge {
+    display: inline-block;
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    padding: 4px 14px;
+    background: rgba(0, 255, 204, 0.1);
+    border: 1px solid rgba(0, 255, 204, 0.35);
+    border-radius: 4px;
+    color: #00ffcc;
+    margin-bottom: 14px;
+}
+
+.seo-title {
+    font-family: 'Teko', sans-serif;
+    font-size: 56px;
+    line-height: 1.05;
+    letter-spacing: 1.5px;
+    color: #ffffff;
+    text-transform: uppercase;
+    margin-bottom: 18px;
+    text-shadow: 0 0 20px rgba(0, 255, 204, 0.2);
+}
+
+.seo-intro-lead {
+    font-size: 18px;
+    line-height: 1.7;
+    color: #cbd5e1;
+    margin-bottom: 36px;
+    padding-bottom: 24px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.seo-article h2 {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 28px;
+    font-weight: 700;
+    color: #00ffcc;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin: 42px 0 16px 0;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.seo-article h3 {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 22px;
+    font-weight: 700;
+    color: #facc15;
+    text-transform: uppercase;
+    margin: 24px 0 12px 0;
+}
+
+.seo-article p {
+    font-size: 16px;
+    line-height: 1.75;
+    color: #cbd5e1;
+    margin-bottom: 20px;
+}
+
+.seo-article ul {
+    margin: 0 0 24px 28px;
+    color: #cbd5e1;
+    font-size: 16px;
+    line-height: 1.75;
+}
+
+.seo-article li {
+    margin-bottom: 10px;
+}
+
+/* Weapons Showcase Grid */
+.seo-weapon-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 20px;
+    margin: 28px 0 40px 0;
+}
+
+.seo-weapon-card {
+    background: rgba(16, 22, 34, 0.85);
+    border: 1px solid rgba(0, 255, 204, 0.2);
+    border-radius: 8px;
+    padding: 20px;
+    transition: transform 0.2s, border-color 0.2s, box-shadow 0.2s;
+}
+
+.seo-weapon-card:hover {
+    transform: translateY(-3px);
+    border-color: #00ffcc;
+    box-shadow: 0 6px 20px rgba(0, 255, 204, 0.15);
+}
+
+.seo-w-tag {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    color: #facc15;
+    text-transform: uppercase;
+    margin-bottom: 4px;
+}
+
+.seo-w-name {
+    font-family: 'Teko', sans-serif;
+    font-size: 28px;
+    letter-spacing: 1px;
+    color: #ffffff;
+    line-height: 1.1;
+    margin-bottom: 8px;
+}
+
+.seo-w-desc {
+    font-size: 14px;
+    color: #94a3b8;
+    line-height: 1.6;
+    margin-bottom: 14px;
+}
+
+.seo-w-stats {
+    display: flex;
+    justify-content: space-between;
+    padding-top: 10px;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 13px;
+    color: #00ffcc;
+    font-weight: 700;
+}
+
+/* Feature Callout Cards */
+.seo-feature-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 24px;
+    margin: 28px 0;
+}
+
+.seo-feature-card {
+    background: rgba(16, 22, 34, 0.7);
+    border-left: 4px solid #00ffcc;
+    border-radius: 0 8px 8px 0;
+    padding: 20px 24px;
+}
+
+.seo-feature-card h4 {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 20px;
+    font-weight: 700;
+    color: #ffffff;
+    margin-bottom: 8px;
+    text-transform: uppercase;
+}
+
+.seo-feature-card p {
+    font-size: 15px;
+    color: #94a3b8;
+    margin-bottom: 0;
+}
+
+/* Quick Controls Summary Box */
+.seo-controls-box {
+    background: rgba(16, 22, 34, 0.9);
+    border: 1px solid rgba(250, 204, 21, 0.35);
+    border-radius: 8px;
+    padding: 24px;
+    margin: 32px 0;
+}
+
+.seo-controls-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 14px;
+    margin-top: 16px;
+}
+
+.control-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.key-badge {
+    background: #1e293b;
+    border: 1px solid #475569;
+    border-bottom: 2px solid #00ffcc;
+    color: #00ffcc;
+    font-family: 'Rajdhani', monospace;
+    font-weight: 700;
+    font-size: 14px;
+    padding: 4px 10px;
+    border-radius: 4px;
+    min-width: 48px;
+    text-align: center;
+}
+
+.key-action {
+    font-size: 14px;
+    color: #e2e8f0;
+    font-weight: 500;
+}
+
+/* Jump to Play CTA Inside Guide */
+.seo-cta-banner {
+    background: linear-gradient(135deg, rgba(0, 255, 204, 0.15), rgba(0, 180, 216, 0.15));
+    border: 1px solid #00ffcc;
+    border-radius: 12px;
+    padding: 36px 28px;
+    text-align: center;
+    margin: 48px 0;
+    box-shadow: 0 0 30px rgba(0, 255, 204, 0.15);
+}
+
+.seo-cta-title {
+    font-family: 'Teko', sans-serif;
+    font-size: 44px;
+    color: #ffffff;
+    margin-bottom: 8px;
+    letter-spacing: 1px;
+}
+
+.seo-cta-desc {
+    color: #cbd5e1;
+    font-size: 16px;
+    margin-bottom: 24px;
+}
+
+/* =========================================================
+   FAQ ACCORDION SECTION
+   ========================================================= */
+.seo-faq-section {
+    margin-top: 50px;
+    padding-top: 40px;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.faq-header {
+    text-align: center;
+    margin-bottom: 36px;
+}
+
+.faq-title {
+    font-family: 'Teko', sans-serif;
+    font-size: 48px;
+    color: #ffffff;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+}
+
+.faq-subtitle {
+    color: #94a3b8;
+    font-size: 16px;
+}
+
+.faq-accordion {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    max-width: 960px;
+    margin: 0 auto;
+}
+
+.faq-item {
+    background: rgba(16, 22, 34, 0.75);
+    border: 1px solid rgba(0, 255, 204, 0.18);
+    border-radius: 8px;
+    overflow: hidden;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.faq-item:hover {
+    border-color: rgba(0, 255, 204, 0.4);
+    box-shadow: 0 4px 15px rgba(0, 255, 204, 0.08);
+}
+
+.faq-question {
+    padding: 18px 24px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    cursor: pointer;
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 19px;
+    font-weight: 700;
+    color: #ffffff;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    user-select: none;
+}
+
+.faq-question:hover {
+    color: #00ffcc;
+}
+
+.faq-icon {
+    font-size: 20px;
+    color: #00ffcc;
+    transition: transform 0.25s ease;
+}
+
+.faq-item.active .faq-icon {
+    transform: rotate(45deg);
+    color: #facc15;
+}
+
+.faq-answer {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.3s ease, padding 0.3s ease;
+    padding: 0 24px;
+    font-size: 15px;
+    line-height: 1.7;
+    color: #cbd5e1;
+    background: rgba(11, 14, 20, 0.4);
+}
+
+.faq-item.active .faq-answer {
+    max-height: 300px;
+    padding: 16px 24px 22px 24px;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+/* =========================================================
+   SEO SITE FOOTER
+   ========================================================= */
+.seo-site-footer {
+    background: #080a0f;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    padding: 48px 24px 28px 24px;
+    margin-top: 60px;
+}
+
+.seo-footer-container {
+    max-width: 1080px;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: 2fr 1fr 1fr 1fr;
+    gap: 36px;
+    margin-bottom: 36px;
+}
+
+.seo-footer-brand p {
+    color: #94a3b8;
+    font-size: 14px;
+    margin-top: 12px;
+    max-width: 320px;
+    line-height: 1.6;
+}
+
+.seo-footer-title {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 16px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: #00ffcc;
+    margin-bottom: 16px;
+}
+
+.seo-footer-links {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.seo-footer-link {
+    color: #94a3b8;
+    text-decoration: none;
+    font-size: 14px;
+    transition: color 0.2s;
+}
+
+.seo-footer-link:hover {
+    color: #00ffcc;
+}
+
+.seo-footer-bottom {
+    max-width: 1080px;
+    margin: 0 auto;
+    padding-top: 24px;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    color: #64748b;
+    font-size: 13px;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+
+/* Responsive Media Queries */
+@media (max-width: 900px) {
+    .seo-footer-container {
+        grid-template-columns: 1fr 1fr;
+    }
+    .seo-title {
+        font-size: 42px;
+    }
+    .lobby-right-menu {
+        right: 15px;
+        top: auto;
+        bottom: 80px;
+        transform: none;
+    }
+}
+
+@media (max-width: 600px) {
+    .seo-footer-container {
+        grid-template-columns: 1fr;
+    }
+    .seo-footer-bottom {
+        flex-direction: column;
+        text-align: center;
+    }
+    .seo-title {
+        font-size: 34px;
+    }
+    .lobby-top-bar {
+        padding: 10px 14px;
+    }
+    .top-nav-left, .top-nav-right {
+        gap: 10px;
+    }
+    .nav-item {
+        font-size: 11px;
+    }
 }
 
 

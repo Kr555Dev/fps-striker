@@ -1,0 +1,12 @@
+User-agent: *
+Allow: /
+Allow: /assets/
+Allow: /css/
+Allow: /js/
+Allow: /lib/
+
+# Disallow internal test folders if present
+Disallow: /tests/
+
+# Sitemap location (update domain if using a custom domain)
+Sitemap: https://fpsstriker.com/sitemap.xml

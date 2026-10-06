@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>About Us - FPS Striker Shooter | 3D Browser FPS</title>
+    <meta name="description" content="Discover the story, mission, and engineering behind FPS Striker Shooter. High-performance browser gaming built with Three.js, procedural audio, and zero downloads.">
+    <link rel="canonical" href="https://fpsstriker.com/about.html">
+    <link rel="icon" type="image/x-icon" href="/favicon.ico">
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+    <link rel="manifest" href="/site.webmanifest">
+    <meta name="theme-color" content="#00ffcc">
+    <link rel="stylesheet" href="css/pages.css">
+</head>
+<body>
+    <header class="site-header">
+        <div class="header-container">
+            <a href="/" class="brand-link">
+                <img src="/favicon-32x32.png" alt="FPS Striker Logo" class="brand-logo">
+                <span class="brand-name">FPS STRIKER</span>
+            </a>
+            <ul class="nav-links">
+                <li><a href="/" class="nav-link">Home</a></li>
+                <li><a href="/about.html" class="nav-link active">About Us</a></li>
+                <li><a href="/contact.html" class="nav-link">Contact</a></li>
+                <li><a href="/privacy-policy.html" class="nav-link">Privacy</a></li>
+                <li><a href="/terms.html" class="nav-link">Terms</a></li>
+            </ul>
+            <a href="/" class="play-now-btn">⚡ Play Game</a>
+        </div>
+    </header>
+
+    <main class="main-content">
+        <article class="content-card">
+            <span class="page-badge">Our Mission & Story</span>
+            <h1 class="page-title">About FPS Striker</h1>
+            <p class="page-subtitle">Pioneering High-Velocity, Zero-Friction 3D Browser Gaming</p>
+
+            <div class="content-body">
+                <h2>Our Vision: Competitive Gaming Without Barriers</h2>
+                <p><strong>FPS Striker Shooter</strong> was born out of a simple, rebellious belief: competitive, high-octane 3D shooter gaming should be accessible to everyone, on any device, anywhere in the world, without requiring a $1,500 gaming rig, proprietary app store downloads, or 100GB installation files.</p>
+                <p>Millions of passionate young gamers, students, and casual players love high-speed competitive shooting games like CS:GO, Quake, and Krunker, but are restricted by school chromebooks, budget laptops, or integrated graphics cards. Our mission is to deliver that exact authentic, lightning-fast 100 FPS arena shooter experience right inside an open web browser tab in less than three seconds.</p>
+
+                <h2>Cutting-Edge Web Engineering</h2>
+                <p>Building a high-speed first-person shooter in the browser that runs at 60–100+ FPS on integrated Intel graphics requires pushing modern WebGL and Web APIs to their absolute limits:</p>
+                <ul>
+                    <li><strong>Custom Kinematic Physics & Slide-Hopping:</strong> Rather than relying on heavy physics engines, FPS Striker implements a bespoke, low-latency swept AABB kinematic controller. Players can execute seamless bunny hopping, momentum-preserving slide-hops, and surgical air-strafing.</li>
+                    <li><strong>Procedural Audio Synthesis:</strong> Powered by the Web Audio API, every gunshot, shell casing bounce, bullet crack, and heartbeat is generated dynamically using real-time oscillators, noise bursts, and biquad dynamics compressors. This means instantaneous audio response with zero bandwidth lag.</li>
+                    <li><strong>Zero-GC Memory Management:</strong> High-frequency update loops in JavaScript frequently suffer from garbage collection (GC) micro-stutters. FPS Striker operates on a strict zero-allocation architecture during gameplay, utilizing pre-allocated scratch vectors and pooled particle buffers to maintain perfectly flat frame times.</li>
+                    <li><strong>Intelligent Offline Bot AI:</strong> Built-in combat mercenaries feature state machines (Patrol, Engage, Evade), lateral strafe-weaving kinematics, raycasted line-of-sight awareness, and reactive slide-hop dodging when taking fire.</li>
+                </ul>
+
+                <h2>The Arsenal: Balanced Skill-Based Weapons</h2>
+                <p>Every firearm in FPS Striker is designed with distinct recoil patterns, muzzle velocities, tactical ADS (aim-down-sights) transitions, and tactical sound stages:</p>
+                <ul>
+                    <li><strong>AR-47 Commando:</strong> High-velocity 5.56 assault rifle engineered for mid-range skirmishes and precision burst taps.</li>
+                    <li><strong>AWM Marksman Sniper:</strong> Heavy bolt-action rifle delivering devastating one-shot eliminations with pinpoint ADS telescopic reticle magnification.</li>
+                    <li><strong>SMG-9 Rapid:</strong> Compact submachine gun with extreme cyclic fire rates, perfect for aggressive close-quarters slide-hop flanks.</li>
+                    <li><strong>.357 Heavy Revolver:</strong> Six-shot hand cannon rewarding surgical headshots with lethal stopping power.</li>
+                    <li><strong>12-Gauge Double-Barrel Shotgun:</strong> Devastating close-range scatter gun with explosive pellet cones for aggressive point defense.</li>
+                </ul>
+
+                <h2>Multiplayer Roadmap & What's Next</h2>
+                <p>FPS Striker is evolving rapidly. While our offline practice arena and bot skirmishes allow instant play anywhere, our development team is actively engineering full authoritative multiplayer networking with rollback netcode, community map creation tools, and global seasonal leaderboards.</p>
+
+                <h2>Meet the Team</h2>
+                <p>We are an independent team of browser game engineers, Three.js enthusiasts, and competitive FPS veterans dedicated to advancing the open web as a premier gaming platform. Have feedback, suggestions, or want to contribute? We'd love to hear from you on our <a href="/contact.html">Contact page</a>.</p>
+            </div>
+        </article>
+    </main>
+
+    <footer class="site-footer">
+        <div class="footer-container">
+            <div class="footer-brand">
+                <span class="brand-name">FPS STRIKER</span>
+                <p>The definitive fast-paced 3D voxel browser shooter. Play free directly in your web browser with zero downloads.</p>
+            </div>
+            <div>
+                <h4 class="footer-title">Navigation</h4>
+                <ul class="footer-links">
+                    <li><a href="/" class="footer-link">Play Game</a></li>
+                    <li><a href="/about.html" class="footer-link">About Us</a></li>
+                    <li><a href="/contact.html" class="footer-link">Contact</a></li>
+                </ul>
+            </div>
+            <div>
+                <h4 class="footer-title">Legal & Trust</h4>
+                <ul class="footer-links">
+                    <li><a href="/privacy-policy.html" class="footer-link">Privacy Policy</a></li>
+                    <li><a href="/terms.html" class="footer-link">Terms & Conditions</a></li>
+                </ul>
+            </div>
+            <div>
+                <h4 class="footer-title">Community</h4>
+                <ul class="footer-links">
+                    <li><a href="https://itch.io" class="footer-link" target="_blank" rel="noopener">itch.io Hub</a></li>
+                    <li><a href="https://github.com" class="footer-link" target="_blank" rel="noopener">GitHub</a></li>
+                </ul>
+            </div>
+        </div>
+        <div class="footer-bottom">
+            <span>&copy; 2026 FPS Striker. All rights reserved.</span>
+            <span>Built with WebGL & Three.js</span>
+        </div>
+    </footer>
+</body>
+</html>
