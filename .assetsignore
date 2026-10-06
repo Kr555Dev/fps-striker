@@ -1,0 +1,14 @@
+.git/
+.gitignore
+.editorconfig
+*.md
+tests/
+__pycache__/
+*.py
+package.json
+package-lock.json
+node_modules/
+dist/
+start.bat
+LICENSE
+vercel.json
