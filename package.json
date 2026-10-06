@@ -7,7 +7,8 @@
     "start": "python serve.py",
     "serve": "python serve.py",
     "start:node": "npx serve -l 8080 .",
-    "test": "python test_all_requirements.py"
+    "test": "python test_all_requirements.py",
+    "package:zip": "powershell -Command \"New-Item -ItemType Directory -Force dist; Compress-Archive -Path index.html, css, js, lib, assets -DestinationPath dist/fps-striker-itch.zip -Force\""
   },
   "keywords": [
     "fps-striker",

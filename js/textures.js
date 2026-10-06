@@ -1,48 +1,11 @@
 /**
  * Procedural Stylized Asset & Texture Generator
- * Loads AI-generated high resolution tactical skins for AR, Sniper, Revolver, SMG, and Bot Armor.
+ * 100% Procedural HTML5 canvas texture synthesis & material cache.
  */
 
 class TextureGenerator {
     constructor() {
         this.cache = {};
-        this.loader = new THREE.TextureLoader();
-        this.weaponTextures = {
-            ar: null,
-            sniper: null,
-            revolver: null,
-            smg: null,
-            armor: null
-        };
-        this.loadWeaponSkins();
-    }
-
-    loadWeaponSkins() {
-        const setupTex = (path, fallbackFn) => {
-            return this.loader.load(
-                path,
-                (tex) => {
-                    tex.wrapS = THREE.RepeatWrapping;
-                    tex.wrapT = THREE.RepeatWrapping;
-                    tex.minFilter = THREE.LinearMipmapLinearFilter;
-                    tex.magFilter = THREE.LinearFilter;
-                    tex.anisotropy = 8;
-                    tex.generateMipmaps = true;
-                    tex.needsUpdate = true;
-                },
-                undefined,
-                (err) => {
-                    console.warn(`Fallback texture used for ${path}`);
-                    if (fallbackFn) fallbackFn();
-                }
-            );
-        };
-
-        this.weaponTextures.ar = setupTex('assets/ar_skin.png');
-        this.weaponTextures.sniper = setupTex('assets/sniper_skin.png');
-        this.weaponTextures.revolver = setupTex('assets/revolver_skin.png');
-        this.weaponTextures.smg = setupTex('assets/smg_skin.png');
-        this.weaponTextures.armor = setupTex('assets/bot_armor.png');
     }
 
     getRevolverSkin() {

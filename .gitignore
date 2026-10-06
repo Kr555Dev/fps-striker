@@ -42,5 +42,5 @@ desktop.ini
 *.log
 *.tmp
 temp/
-tmp/
-scratch/
+# Build & package outputs
+dist/
