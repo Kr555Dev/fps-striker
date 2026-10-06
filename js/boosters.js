@@ -375,6 +375,11 @@ class BoosterManager {
         // Apply effect to player
         player.applyBooster(pickup.type);
 
+        if (window.uiManager && typeof window.uiManager.addChatBoosterMessage === 'function') {
+            const labels = { speed: 'ADRENALINE BURST', damage: 'HYPER DAMAGE', shield: 'NANO-SHIELD' };
+            window.uiManager.addChatBoosterMessage('YOU', labels[pickup.type] || pickup.type.toUpperCase());
+        }
+
         // Particle FX
         const color = pickup.type === 'speed' ? 0x00ffcc : (pickup.type === 'damage' ? 0xff0044 : 0xffaa00);
         this.particles.createBoosterPickupEffect(pickup.root.position, color);

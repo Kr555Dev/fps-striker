@@ -43,7 +43,7 @@ class GameMap {
         this.materials.sandBrickLong = this.materials.stoneBrickLong;
     }
 
-    addBox(x, y, z, width, height, depth, material, canCollide = true, isRamp = false) {
+    addBox(x, y, z, width, height, depth, material, canCollide = true, isRamp = false, isShootable = null) {
         const geometry = new THREE.BoxGeometry(width, height, depth);
         const mesh = new THREE.Mesh(geometry, material);
         mesh.position.set(x, y, z);
@@ -63,6 +63,10 @@ class GameMap {
                 max: new THREE.Vector3(x + halfW, y + halfH, z + halfD),
                 isRamp: isRamp
             });
+        }
+
+        const shouldBeShootable = (isShootable !== null) ? isShootable : canCollide;
+        if (shouldBeShootable) {
             this.shootableMeshes.push(mesh);
         }
         return mesh;
@@ -124,19 +128,19 @@ class GameMap {
         const wallThick = 4;
         // North wall + trim
         this.addBox(0, wallH / 2, -78, 160, wallH, wallThick, this.materials.stoneBrickLong);
-        this.addBox(0, wallH + 0.4, -78, 162, 0.8, wallThick + 0.6, this.materials.trimDark, false);
+        this.addBox(0, wallH + 0.4, -78, 162, 0.8, wallThick + 0.6, this.materials.trimDark, false, false, true);
 
         // South wall + trim
         this.addBox(0, wallH / 2, 78, 160, wallH, wallThick, this.materials.stoneBrickLong);
-        this.addBox(0, wallH + 0.4, 78, 162, 0.8, wallThick + 0.6, this.materials.trimDark, false);
+        this.addBox(0, wallH + 0.4, 78, 162, 0.8, wallThick + 0.6, this.materials.trimDark, false, false, true);
 
         // West wall + trim
         this.addBox(-78, wallH / 2, 0, wallThick, wallH, 160, this.materials.stoneBrickLong);
-        this.addBox(-78, wallH + 0.4, 0, wallThick + 0.6, 0.8, 162, this.materials.trimDark, false);
+        this.addBox(-78, wallH + 0.4, 0, wallThick + 0.6, 0.8, 162, this.materials.trimDark, false, false, true);
 
         // East wall + trim
         this.addBox(78, wallH / 2, 0, wallThick, wallH, 160, this.materials.stoneBrickLong);
-        this.addBox(78, wallH + 0.4, 0, wallThick + 0.6, 0.8, 162, this.materials.trimDark, false);
+        this.addBox(78, wallH + 0.4, 0, wallThick + 0.6, 0.8, 162, this.materials.trimDark, false, false, true);
 
         // 4. Central Plaza Ruined Fortress & Tiered Pillars
         // Main dais
@@ -149,7 +153,7 @@ class GameMap {
         ];
         pillarCoords.forEach(([px, pz]) => {
             this.addBox(px, 4.5, pz, 3.2, 5.0, 3.2, this.materials.stonePillar);
-            this.addBox(px, 7.2, pz, 3.8, 0.6, 3.8, this.materials.trimDark);
+            this.addBox(px, 7.2, pz, 3.8, 0.6, 3.8, this.materials.trimDark, false, false, true);
         });
 
         // Top lintel stone slabs
@@ -273,13 +277,13 @@ class GameMap {
 
     // Seamless, flush crate group with zero internal crevice traps
     createSolidCrateGroup(cx, cy, cz) {
-        // Base tier: 2x2 flush crates
-        this.addBox(cx - 1.5, cy + 1.5, cz - 1.5, 3, 3, 3, this.materials.woodCrate, false);
-        this.addBox(cx + 1.5, cy + 1.5, cz - 1.5, 3, 3, 3, this.materials.woodCrate, false);
-        this.addBox(cx - 1.5, cy + 1.5, cz + 1.5, 3, 3, 3, this.materials.militaryCrate, false);
-        this.addBox(cx + 1.5, cy + 1.5, cz + 1.5, 3, 3, 3, this.materials.militaryCrate, false);
+        // Base tier: 2x2 flush crates (shootable to block bullets and sightlines!)
+        this.addBox(cx - 1.5, cy + 1.5, cz - 1.5, 3, 3, 3, this.materials.woodCrate, false, false, true);
+        this.addBox(cx + 1.5, cy + 1.5, cz - 1.5, 3, 3, 3, this.materials.woodCrate, false, false, true);
+        this.addBox(cx - 1.5, cy + 1.5, cz + 1.5, 3, 3, 3, this.materials.militaryCrate, false, false, true);
+        this.addBox(cx + 1.5, cy + 1.5, cz + 1.5, 3, 3, 3, this.materials.militaryCrate, false, false, true);
         // Top tier
-        this.addBox(cx, cy + 4.5, cz, 3, 3, 3, this.materials.woodCrate, false);
+        this.addBox(cx, cy + 4.5, cz, 3, 3, 3, this.materials.woodCrate, false, false, true);
 
         // Unified compound collider for the whole group (prevents getting wedged between crates!)
         this.colliders.push({
@@ -302,8 +306,8 @@ class GameMap {
         _losDir.normalize();
 
         _losRay.set(fromPos, _losDir);
-        _losRay.near = 0.2;
-        _losRay.far = distance - 0.2;
+        _losRay.near = 0.1;
+        _losRay.far = Math.max(0.1, distance - 0.05);
         const hits = _losRay.intersectObjects(this.shootableMeshes, false);
         return hits.length === 0;
     }

@@ -25,6 +25,7 @@ class FPSStrikerGame {
         this.fpsHistory = [];
         this.currentScale = 1.0;
         this.isGameStarted = false;
+        this.isPaused = false;
 
         this.init();
     }
@@ -111,50 +112,17 @@ class FPSStrikerGame {
         }
 
         if (this.player && this.player.yawObject) {
-            this.player.yawObject.position.set(0, 1.6, 25.5);
+            this.player.yawObject.position.set(0, 2.5, 25.0);
             this.player.yawObject.rotation.y = 0;
-            this.player.pitchObject.rotation.x = -0.05;
+            this.player.pitchObject.rotation.x = -0.16;
         }
 
         // Start Menu & Quick Match Click to Play (FPS Striker Lobby)
-        const startMenu = document.getElementById('start-menu');
-        const startGame = () => {
-            this.isGameStarted = true;
-            if (window.game) window.game.isGameStarted = true;
-            if (window.soundEngine) {
-                window.soundEngine.resume();
-                // Duck music by ~80-85% during active gameplay
-                window.soundEngine.duckMusic(true);
-            }
-            if (startMenu) startMenu.style.display = 'none';
-            if (hud) hud.style.display = 'block';
-            if (this.lobbyPreviewCharacter) this.lobbyPreviewCharacter.visible = false;
-            if (this.weapons && this.weapons.viewmodelRoot) {
-                this.weapons.viewmodelRoot.visible = true;
-            }
-            if (this.player) {
-                this.player.spawn();
-            }
-            if (this.weapons) {
-                this.weapons.resetAmmo();
-                if (window.selectedStartingWeapon) {
-                    this.weapons.switchWeapon(window.selectedStartingWeapon);
-                }
-            }
-            if (this.loot) {
-                this.loot.clearAllDrops();
-            }
-            if (this.boosters) {
-                this.boosters.reset();
-            }
-            document.body.requestPointerLock();
-        };
-
         const startBtn = document.getElementById('btn-start-game');
-        if (startBtn) startBtn.addEventListener('click', startGame);
+        if (startBtn) startBtn.addEventListener('click', () => this.startGame());
 
         const quickMatchBtn = document.getElementById('btn-quick-match');
-        if (quickMatchBtn) quickMatchBtn.addEventListener('click', startGame);
+        if (quickMatchBtn) quickMatchBtn.addEventListener('click', () => this.startGame());
 
         // Auto-start Lobby BGM directly on initial load & reload
         if (window.soundEngine && !this.isGameStarted) {
@@ -267,7 +235,7 @@ class FPSStrikerGame {
             }
         });
 
-        preview.position.set(0, 0, 21.0);
+        preview.position.set(0, 0, 20.2);
         preview.rotation.y = Math.PI - 0.25;
         this.scene.add(preview);
         this.lobbyPreviewCharacter = preview;
@@ -311,8 +279,82 @@ class FPSStrikerGame {
         this.renderer.setSize(window.innerWidth, window.innerHeight);
     }
 
+    startGame() {
+        this.isGameStarted = true;
+        this.isPaused = false;
+        if (window.game) {
+            window.game.isGameStarted = true;
+            window.game.isPaused = false;
+        }
+        if (window.soundEngine) {
+            window.soundEngine.resume();
+            // Duck music by ~80-85% during active gameplay
+            window.soundEngine.duckMusic(true);
+        }
+        const startMenu = document.getElementById('start-menu');
+        if (startMenu) startMenu.style.display = 'none';
+        const pauseMenu = document.getElementById('pause-menu');
+        if (pauseMenu) pauseMenu.style.display = 'none';
+        const hud = document.getElementById('hud');
+        if (hud) hud.style.display = 'block';
+        if (this.lobbyPreviewCharacter) this.lobbyPreviewCharacter.visible = false;
+        if (this.weapons && this.weapons.viewmodelRoot) {
+            this.weapons.viewmodelRoot.visible = true;
+        }
+        if (this.player) {
+            this.player.spawn();
+        }
+        if (this.weapons) {
+            this.weapons.resetAmmo();
+            if (window.selectedStartingWeapon) {
+                this.weapons.switchWeapon(window.selectedStartingWeapon);
+            }
+        }
+        if (this.loot) {
+            this.loot.clearAllDrops();
+        }
+        if (this.boosters) {
+            this.boosters.reset();
+        }
+        if (this.ui) {
+            this.ui.startMatchTimer();
+            this.ui.updateLiveLeaderboard(this.player, this.bots);
+            this.ui.addChatEvent(`<span class="chat-name player">DISPATCH</span> Match active &bull; Team Deathmatch on Outpost`, 'system');
+            if (this.bots && this.bots.bots) {
+                this.bots.bots.forEach(b => {
+                    this.ui.addChatJoinMessage(b.name);
+                });
+            }
+        }
+        if (this.clock) {
+            this.clock.getDelta();
+        }
+        document.body.requestPointerLock();
+    }
+
+    setPaused(paused) {
+        if (!this.isGameStarted && paused) return;
+        this.isPaused = !!paused;
+        const pauseMenu = document.getElementById('pause-menu');
+        if (this.isPaused) {
+            if (pauseMenu) pauseMenu.style.display = 'flex';
+            if (this.clock) this.clock.getDelta();
+        } else {
+            if (pauseMenu) pauseMenu.style.display = 'none';
+            if (this.clock) this.clock.getDelta();
+        }
+    }
+
     animate() {
         requestAnimationFrame(() => this.animate());
+
+        if (this.isPaused) {
+            if (this.clock) {
+                this.clock.getDelta();
+            }
+            this.renderer.render(this.scene, this.camera);
+            return;
+        }
 
         const dt = Math.min(this.clock.getDelta(), 0.05);
 
@@ -352,6 +394,7 @@ class FPSStrikerGame {
         }
 
         if (this.ui) {
+            this.ui.updateCrosshairBloom(dt);
             this.ui.recordFrame();
             // Adaptive Resolution Guard: Automatically preserves 45-60 FPS
             if (this.ui.currentFps < 32 && this.currentScale > 0.75) {
@@ -370,4 +413,5 @@ class FPSStrikerGame {
 window.addEventListener('DOMContentLoaded', () => {
     window.game = new FPSStrikerGame();
     window.game.isGameStarted = false;
+    window.game.isPaused = false;
 });

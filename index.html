@@ -195,7 +195,7 @@
             <div class="time-ping-row">
                 <div class="match-time-badge">
                     <span class="clock-icon">⏱</span>
-                    <span id="match-timer">01:49</span>
+                    <span id="match-timer">03:00</span>
                 </div>
                 <div class="telemetry-stack">
                     <div id="ping-display">30 PING</div>
@@ -207,27 +207,27 @@
                 <span class="map-label">on Outpost</span>
             </div>
             <div class="team-score-row">
-                <span class="team-score alpha"><span class="team-square white">■</span> <span id="score-alpha">50</span></span>
-                <span class="team-score omega"><span class="team-square red">■</span> <span id="score-omega">465</span></span>
+                <span class="team-score alpha"><span class="team-square white">■</span> <span id="score-alpha">0</span></span>
+                <span class="team-score omega"><span class="team-square red">■</span> <span id="score-omega">0</span></span>
             </div>
         </div>
 
         <!-- Top Right: Live Leaderboard Card -->
         <div id="top-right-leaderboard">
-            <div class="leaderboard-entry rank-1">
+            <div class="leaderboard-entry rank-1 rank-player is-player">
                 <span class="lb-rank">1.</span>
-                <span class="lb-name">Guest_1</span>
-                <span class="lb-score" id="lb-score-1">415</span>
+                <span class="lb-name">YOU</span>
+                <span class="lb-score">0</span>
             </div>
             <div class="leaderboard-entry rank-2">
                 <span class="lb-rank">2.</span>
-                <span class="lb-name" id="lb-player-name">Player_4</span>
-                <span class="lb-score" id="lb-score-player">50</span>
+                <span class="lb-name">Guest_1</span>
+                <span class="lb-score">0</span>
             </div>
             <div class="leaderboard-entry">
                 <span class="lb-rank">3.</span>
-                <span class="lb-name">Player_5</span>
-                <span class="lb-score">50</span>
+                <span class="lb-name">Player_4</span>
+                <span class="lb-score">0</span>
             </div>
             <div class="leaderboard-entry">
                 <span class="lb-rank">4.</span>
@@ -236,12 +236,12 @@
             </div>
             <div class="leaderboard-entry">
                 <span class="lb-rank">5.</span>
-                <span class="lb-name">Guest_3</span>
+                <span class="lb-name">Player_5</span>
                 <span class="lb-score">0</span>
             </div>
             <div class="leaderboard-entry">
                 <span class="lb-rank">6.</span>
-                <span class="lb-name">Guest_6</span>
+                <span class="lb-name">Guest_3</span>
                 <span class="lb-score">0</span>
             </div>
         </div>
@@ -262,11 +262,70 @@
             <div class="hit-line hit-br"></div>
         </div>
 
-        <!-- Sniper Scope ADS Overlay -->
+        <!-- Sniper Scope ADS Precision Optic Overlay -->
         <div id="sniper-scope">
-            <div class="scope-reticle">
-                <div class="scope-line-h"></div>
-                <div class="scope-line-v"></div>
+            <div class="scope-dark-mask"></div>
+            <div class="scope-lens-bezel"></div>
+            <div class="scope-reticle-container">
+                <svg class="scope-svg-reticle" viewBox="0 0 1000 1000" preserveAspectRatio="xMidYMid meet">
+                    <defs>
+                        <radialGradient id="scope-glass-vignette" cx="50%" cy="50%" r="50%">
+                            <stop offset="0%" stop-color="rgba(0, 240, 255, 0.02)" />
+                            <stop offset="70%" stop-color="rgba(0, 240, 255, 0.04)" />
+                            <stop offset="92%" stop-color="rgba(5, 12, 22, 0.3)" />
+                            <stop offset="100%" stop-color="rgba(0, 0, 0, 0.85)" />
+                        </radialGradient>
+                        <filter id="scope-glow" x="-20%" y="-20%" width="140%" height="140%">
+                            <feGaussianBlur stdDeviation="2.5" result="blur" />
+                            <feComposite in="SourceGraphic" in2="blur" operator="over" />
+                        </filter>
+                    </defs>
+
+                    <!-- Circular Glass Area -->
+                    <circle cx="500" cy="500" r="418" fill="url(#scope-glass-vignette)" stroke="#1a2530" stroke-width="6" />
+                    <circle cx="500" cy="500" r="414" fill="none" stroke="rgba(0, 255, 204, 0.25)" stroke-width="1.5" />
+
+                    <!-- Outer Rangefinder Dash Circle -->
+                    <circle cx="500" cy="500" r="320" fill="none" stroke="rgba(255, 255, 255, 0.15)" stroke-width="1" stroke-dasharray="2 12" />
+
+                    <!-- Primary Tapered Posts: Left, Right, Top, Bottom -->
+                    <line x1="86" y1="500" x2="430" y2="500" stroke="rgba(20, 24, 30, 0.95)" stroke-width="5" stroke-linecap="round" />
+                    <line x1="570" y1="500" x2="914" y2="500" stroke="rgba(20, 24, 30, 0.95)" stroke-width="5" stroke-linecap="round" />
+                    <line x1="500" y1="86" x2="500" y2="430" stroke="rgba(20, 24, 30, 0.95)" stroke-width="5" stroke-linecap="round" />
+                    <line x1="500" y1="570" x2="500" y2="914" stroke="rgba(20, 24, 30, 0.95)" stroke-width="5" stroke-linecap="round" />
+
+                    <!-- Fine Hairline Crosshairs (crisp with center precision gap) -->
+                    <line x1="430" y1="500" x2="494" y2="500" stroke="#00ffcc" stroke-width="1.2" stroke-opacity="0.85" />
+                    <line x1="506" y1="500" x2="570" y2="500" stroke="#00ffcc" stroke-width="1.2" stroke-opacity="0.85" />
+                    <line x1="500" y1="430" x2="500" y2="494" stroke="#00ffcc" stroke-width="1.2" stroke-opacity="0.85" />
+                    <line x1="500" y1="506" x2="500" y2="570" stroke="#00ffcc" stroke-width="1.2" stroke-opacity="0.85" />
+
+                    <!-- Precision Mil Hash Marks (Horizontal) -->
+                    <line x1="450" y1="496" x2="450" y2="504" stroke="#00ffcc" stroke-width="1" stroke-opacity="0.7" />
+                    <line x1="470" y1="497" x2="470" y2="503" stroke="#00ffcc" stroke-width="1" stroke-opacity="0.7" />
+                    <line x1="530" y1="497" x2="530" y2="503" stroke="#00ffcc" stroke-width="1" stroke-opacity="0.7" />
+                    <line x1="550" y1="496" x2="550" y2="504" stroke="#00ffcc" stroke-width="1" stroke-opacity="0.7" />
+
+                    <!-- Precision Mil Hash Marks & Bullet Drop Scale (Vertical) -->
+                    <line x1="497" y1="470" x2="503" y2="470" stroke="#00ffcc" stroke-width="1" stroke-opacity="0.7" />
+                    <line x1="496" y1="450" x2="504" y2="450" stroke="#00ffcc" stroke-width="1" stroke-opacity="0.7" />
+                    
+                    <!-- Bullet Drop Stadia Scale Below Center -->
+                    <line x1="496" y1="520" x2="504" y2="520" stroke="#00ffcc" stroke-width="1" stroke-opacity="0.7" />
+                    <line x1="494" y1="535" x2="506" y2="535" stroke="#00ffcc" stroke-width="1" stroke-opacity="0.7" />
+                    <line x1="492" y1="550" x2="508" y2="550" stroke="#00ffcc" stroke-width="1.2" stroke-opacity="0.7" />
+                    <line x1="488" y1="565" x2="512" y2="565" stroke="#00ffcc" stroke-width="1.2" stroke-opacity="0.7" />
+
+                    <!-- Tactical Center Aiming Reticle (Pleasing and Sharp) -->
+                    <circle cx="500" cy="500" r="14" fill="none" stroke="rgba(255, 34, 85, 0.45)" stroke-width="1" stroke-dasharray="3, 3" />
+                    <circle cx="500" cy="500" r="2.8" fill="#ff2a5f" filter="url(#scope-glow)" />
+
+                    <!-- Corner Optic Telemetry Typography -->
+                    <text x="310" y="240" fill="rgba(0, 255, 204, 0.7)" font-family="monospace" font-size="13" letter-spacing="2">AWM-338 // 10X TACTICAL</text>
+                    <text x="560" y="240" fill="rgba(0, 255, 204, 0.7)" font-family="monospace" font-size="13" letter-spacing="2">RANGE: 100M-500M</text>
+                    <text x="310" y="780" fill="rgba(255, 255, 255, 0.35)" font-family="monospace" font-size="12" letter-spacing="1.5">ELEV: +0.0 MILS</text>
+                    <text x="575" y="780" fill="rgba(255, 255, 255, 0.35)" font-family="monospace" font-size="12" letter-spacing="1.5">WIND: 0.0 MILS</text>
+                </svg>
             </div>
         </div>
 
@@ -295,16 +354,8 @@
 
         <!-- Bottom Left: Chat Box & Player Card -->
         <div id="bottom-left-hud">
-            <!-- Chat / Notification Box -->
-            <div id="chat-box">
-                <div class="chat-msg system-msg"><span class="chat-name pink">Guest_6</span> joined the game</div>
-                <div class="chat-msg streak-msg"><span class="chat-name red">Guest_1</span> is on a 5 Kill Streak</div>
-                <div class="chat-msg system-msg"><span class="chat-name pink">Guest_1</span> joined the game</div>
-                <div class="chat-input-bar">
-                    <span class="chat-placeholder">Enter Message</span>
-                    <span class="chat-mute-icon">[V]</span>
-                </div>
-            </div>
+            <!-- Dynamic Tactical Event Feed / Chat Box -->
+            <div id="chat-box" class="chat-feed-active"></div>
 
             <!-- Player Status Card: Avatar + Segmented HP -->
             <div id="player-card">
@@ -621,6 +672,9 @@
         <div id="floating-damage-container"></div>
     </div>
 
+    <!-- Tactical Toast Notification Center -->
+    <div id="tactical-toast-container"></div>
+
     <!-- Start / Deploy Menu Screen & SEO Landing Overlay -->
     <div id="start-menu" class="striker-lobby-overlay">
         <!-- 1. Fullscreen Lobby Hero Viewport -->
@@ -648,14 +702,27 @@
             <!-- Central CLICK TO PLAY Banner -->
             <div class="lobby-center-prompt">
                 <h1 class="striker-logo-title">FPS STRIKER</h1>
-                <div id="btn-start-game" class="click-to-play-btn">
-                    <span>CLICK TO PLAY</span>
+                <div id="btn-start-game" class="click-to-play-btn" role="button" tabindex="0">
+                    <span class="play-btn-icon">▶</span>
+                    <span class="play-btn-text">CLICK TO PLAY</span>
                 </div>
-                <p class="lobby-instructions">[WASD] Move &bull; [SPACE] Jump/Slide-Hop &bull; [SHIFT] Slide &bull; [1-5] Switch Weapons</p>
-                <a href="#guide-section" class="lobby-scroll-hint" style="margin-top: 14px;">
-                    <span>▼ SCROLL FOR WEAPON STATS, GAME GUIDE &amp; FAQ ▼</span>
-                </a>
+                <p class="lobby-instructions">
+                    <span class="lobby-inst-item"><span class="lobby-key">WASD</span> Move</span>
+                    <span class="lobby-inst-dot">•</span>
+                    <span class="lobby-inst-item"><span class="lobby-key">SPACE</span> Jump/Slide-Hop</span>
+                    <span class="lobby-inst-dot">•</span>
+                    <span class="lobby-inst-item"><span class="lobby-key">SHIFT</span> Slide</span>
+                    <span class="lobby-inst-dot">•</span>
+                    <span class="lobby-inst-item"><span class="lobby-key">1-5</span> Switch Weapons</span>
+                </p>
             </div>
+
+            <!-- Scroll Prompt Indicator in Lobby -->
+            <a href="#guide-section" class="lobby-scroll-hint">
+                <span class="scroll-chevron">▼</span>
+                <span>SCROLL FOR WEAPON STATS, GAME GUIDE &amp; FAQ</span>
+                <span class="scroll-chevron">▼</span>
+            </a>
 
             <!-- Bottom Customization Card -->
             <div class="lobby-bottom-bar">
@@ -995,7 +1062,7 @@
             </div>
 
             <!-- Tactical Audio Engine Sound Test Harness -->
-            <div class="audio-test-panel" style="margin-top: 14px; margin-bottom: 20px; padding: 12px 14px; background: rgba(0, 20, 25, 0.45); border: 1px solid rgba(0, 255, 204, 0.25); border-radius: 8px;">
+            <div class="audio-test-panel" style="display: none; margin-top: 14px; margin-bottom: 20px; padding: 12px 14px; background: rgba(0, 20, 25, 0.45); border: 1px solid rgba(0, 255, 204, 0.25); border-radius: 8px;">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
                     <span style="font-size: 12px; color: #00ffcc; letter-spacing: 1px; font-weight: 700; text-transform: uppercase;">🔊 Audio Engine Diagnostics // Sound Test</span>
                     <span style="font-size: 11px; color: rgba(255,255,255,0.5); font-family: monospace;">4-LAYER DYNAMICS BUS</span>
@@ -1016,7 +1083,7 @@
                 </div>
             </div>
 
-            <div style="display: flex; gap: 12px; justify-content: center;">
+            <div style="display: flex; gap: 12px; justify-content: center; margin-top: 24px;">
                 <button id="btn-resume" class="action-btn">RESUME GAME</button>
             </div>
         </div>
@@ -1084,7 +1151,7 @@
 
             <div class="striker-modal-footer">
                 <button id="btn-restart-match" class="action-btn restart-btn">
-                    <span>⚡ START NEW MATCH [SPACE]</span>
+                    <span>⚡ PLAY AGAIN [SPACE]</span>
                 </button>
                 <button id="btn-dismiss-match" class="action-btn dismiss-btn">
                     <span>CONTINUE PLAYING</span>

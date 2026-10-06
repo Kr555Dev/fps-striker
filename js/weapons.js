@@ -177,6 +177,7 @@ class WeaponSystem {
                 this.isFiring = true;
                 this.shoot();
             } else if (e.button === 2) {
+                if (this.isReloading) return;
                 this.isAiming = true;
             }
         });
@@ -1361,6 +1362,9 @@ class WeaponSystem {
 
         this.isReloading = true;
         this.reloadTimer = this.currentWeapon.reloadTime;
+        if (this.isAiming) {
+            this.isAiming = false;
+        }
 
         if (window.uiManager) {
             window.uiManager.hideReloadPrompt();
@@ -1687,6 +1691,9 @@ class WeaponSystem {
         }
 
         if (this.isReloading) {
+            if (this.isAiming) {
+                this.isAiming = false;
+            }
             this.reloadTimer -= dt;
             if (this.reloadTimer <= 0) {
                 this.finishReload();

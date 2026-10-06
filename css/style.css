@@ -171,6 +171,30 @@ canvas#renderCanvas {
 .leaderboard-entry.rank-1 .lb-score { color: #ffcc00; }
 .leaderboard-entry.rank-2 .lb-score { color: #00ffcc; }
 
+.leaderboard-entry.rank-player,
+.leaderboard-entry.is-player {
+    background: rgba(0, 240, 255, 0.16);
+    border: 1px solid rgba(0, 240, 255, 0.45);
+    border-radius: 3px;
+    padding: 1px 4px;
+    margin: 1px -4px;
+    box-shadow: 0 0 10px rgba(0, 240, 255, 0.25);
+}
+
+.leaderboard-entry.rank-player .lb-name,
+.leaderboard-entry.is-player .lb-name {
+    color: #00f0ff;
+    font-weight: 800;
+    text-shadow: 0 0 6px rgba(0, 240, 255, 0.6);
+}
+
+.leaderboard-entry.rank-player .lb-score,
+.leaderboard-entry.is-player .lb-score {
+    color: #ffd700;
+    font-weight: 800;
+    text-shadow: 0 0 6px rgba(255, 215, 0, 0.6);
+}
+
 .lb-rank {
     color: rgba(255, 255, 255, 0.45);
     width: 16px;
@@ -193,51 +217,62 @@ canvas#renderCanvas {
     color: #ffffff;
 }
 
-/* --- FPS Striker Razor-Sharp Crosshair (+ with center gap) --- */
+/* --- FPS Striker Razor-Sharp Crosshair (+ with dynamic bloom) --- */
 #crosshair {
+    --ch-spread: 0px;
     position: absolute;
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
     pointer-events: none;
-    transition: opacity 0.15s ease;
+    transition: opacity 0.12s ease, transform 0.1s cubic-bezier(0.2, 0.8, 0.25, 1);
 }
 
 .crosshair-line {
     position: absolute;
     background-color: #ffffff;
     box-shadow: 0 0 2px #000000, 0 0 1px #000000, 1px 1px 1px #000000;
-    transition: transform 0.05s ease-out;
+    transition: transform 0.04s linear;
 }
 
-#crosshair.firing .ch-top { transform: translateY(-4px); }
-#crosshair.firing .ch-bottom { transform: translateY(4px); }
-#crosshair.firing .ch-left { transform: translateX(-4px); }
-#crosshair.firing .ch-right { transform: translateX(4px); }
+#crosshair.firing .ch-top { transform: translateY(calc(-1 * var(--ch-spread, 0px) - 3px)); }
+#crosshair.firing .ch-bottom { transform: translateY(calc(var(--ch-spread, 0px) + 3px)); }
+#crosshair.firing .ch-left { transform: translateX(calc(-1 * var(--ch-spread, 0px) - 3px)); }
+#crosshair.firing .ch-right { transform: translateX(calc(var(--ch-spread, 0px) + 3px)); }
+
+#crosshair.ads {
+    --ch-spread: 0px !important;
+    transform: translate(-50%, -50%) scale(0.4);
+    opacity: 0.12;
+}
 
 .ch-top {
     width: 2px;
     height: 8px;
     top: -13px;
     left: -1px;
+    transform: translateY(calc(-1 * var(--ch-spread, 0px)));
 }
 .ch-bottom {
     width: 2px;
     height: 8px;
     top: 5px;
     left: -1px;
+    transform: translateY(var(--ch-spread, 0px));
 }
 .ch-left {
     height: 2px;
     width: 8px;
     left: -13px;
     top: -1px;
+    transform: translateX(calc(-1 * var(--ch-spread, 0px)));
 }
 .ch-right {
     height: 2px;
     width: 8px;
     left: 5px;
     top: -1px;
+    transform: translateX(var(--ch-spread, 0px));
 }
 
 /* Hitmarker */
@@ -276,7 +311,7 @@ canvas#renderCanvas {
 .hit-bl { bottom: 6px; left: 6px; transform: rotate(-45deg); }
 .hit-br { bottom: 6px; right: 6px; transform: rotate(45deg); }
 
-/* Sniper Scope Overlay */
+/* Sniper Scope Overlay (High-Definition Tactical Optic) */
 #sniper-scope {
     position: absolute;
     top: 0;
@@ -285,36 +320,50 @@ canvas#renderCanvas {
     height: 100%;
     display: none;
     pointer-events: none;
-    background: radial-gradient(circle at center, transparent 32%, rgba(0,0,0,0.98) 33%);
+    z-index: 40;
+    overflow: hidden;
 }
 
-#sniper-scope .scope-reticle {
+#sniper-scope .scope-dark-mask {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: radial-gradient(circle at center, transparent min(41vh, 41vw), rgba(0, 0, 0, 0.98) min(42vh, 42vw), #000000 100%);
+    pointer-events: none;
+}
+
+#sniper-scope .scope-lens-bezel {
     position: absolute;
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
-    width: 100%;
-    height: 100%;
+    width: min(84vh, 84vw);
+    height: min(84vh, 84vw);
+    border-radius: 50%;
+    box-shadow: inset 0 0 25px rgba(0, 0, 0, 0.92), 0 0 0 2000px #000000;
+    border: 3px solid rgba(26, 37, 48, 0.95);
+    pointer-events: none;
 }
 
-.scope-line-h {
+#sniper-scope .scope-reticle-container {
     position: absolute;
     top: 50%;
-    left: 0;
-    width: 100%;
-    height: 1px;
-    background: rgba(255, 40, 40, 0.85);
-    box-shadow: 0 0 3px rgba(255, 40, 40, 0.6);
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: min(84vh, 84vw);
+    height: min(84vh, 84vw);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
 }
 
-.scope-line-v {
-    position: absolute;
-    top: 0;
-    left: 50%;
+#sniper-scope .scope-svg-reticle {
+    width: 100%;
     height: 100%;
-    width: 1px;
-    background: rgba(255, 40, 40, 0.85);
-    box-shadow: 0 0 3px rgba(255, 40, 40, 0.6);
+    pointer-events: none;
 }
 
 /* --- Bottom Left: Chat Box & Player Card --- */
@@ -325,36 +374,91 @@ canvas#renderCanvas {
     display: flex;
     flex-direction: column;
     gap: 8px;
+    pointer-events: none;
 }
 
 #chat-box {
-    background: rgba(14, 16, 22, 0.82);
-    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: rgba(14, 16, 22, 0.72);
+    border: 1px solid rgba(255, 255, 255, 0.1);
     border-radius: 4px;
     padding: 6px 10px;
-    width: 250px;
+    width: 320px;
+    min-height: 24px;
+    max-height: 160px;
     font-size: 12px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45);
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    transition: opacity 0.3s ease, border-color 0.3s ease;
+    overflow: hidden;
+}
+
+#chat-box:empty {
+    opacity: 0;
+    border-color: transparent;
+    background: transparent;
+    padding: 0;
+    min-height: 0;
 }
 
 .chat-msg {
-    margin-bottom: 3px;
     font-weight: 600;
-    text-shadow: 1px 1px 2px #000;
+    line-height: 1.35;
+    text-shadow: 1px 1px 2px #000000;
+    animation: chatMsgSlide 0.2s cubic-bezier(0.18, 0.89, 0.32, 1.28);
+    transition: opacity 0.5s ease, transform 0.5s ease;
+    color: #cbd5e1;
 }
 
-.chat-name.pink { color: #f43f5e; font-weight: 700; }
-.chat-name.red { color: #ef4444; font-weight: 700; }
+.chat-msg.fading {
+    opacity: 0;
+    transform: translateX(-12px);
+}
 
-.chat-input-bar {
-    margin-top: 4px;
-    border-top: 1px solid rgba(255, 255, 255, 0.12);
-    padding-top: 4px;
-    display: flex;
-    justify-content: space-between;
-    color: rgba(255, 255, 255, 0.45);
+.chat-msg.system-msg {
+    color: #94a3b8;
+}
+
+.chat-msg.kill-msg {
+    color: #ffffff;
+}
+
+.chat-msg.streak-msg {
+    color: #ffaa00;
+    font-weight: 700;
+}
+
+.chat-msg.booster-msg {
+    color: #00ffcc;
+}
+
+.chat-name.player {
+    color: #00ffcc;
+    font-weight: 700;
+}
+
+.chat-name.bot {
+    color: #f43f5e;
+    font-weight: 700;
+}
+
+.chat-weapon-badge {
+    color: rgba(255, 255, 255, 0.65);
     font-size: 11px;
-    font-weight: 600;
+    padding: 0 3px;
+    font-family: monospace;
+}
+
+.chat-booster-name {
+    color: #ffcc00;
+    font-weight: 700;
+    text-shadow: 0 0 6px rgba(255, 204, 0, 0.4);
+}
+
+@keyframes chatMsgSlide {
+    0% { opacity: 0; transform: translateY(6px); }
+    100% { opacity: 1; transform: translateY(0); }
 }
 
 #player-card {
@@ -1023,11 +1127,12 @@ canvas#renderCanvas {
 
 .lobby-center-prompt {
     text-align: center;
-    margin: auto;
+    margin: calc(8vh + 18px) auto auto auto;
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 10px;
+    gap: 8px;
+    z-index: 5;
 }
 
 .striker-logo-title {
@@ -1040,36 +1145,113 @@ canvas#renderCanvas {
 }
 
 .click-to-play-btn {
+    position: relative;
     font-family: 'Teko', sans-serif;
-    font-size: 56px;
-    line-height: 50px;
+    font-size: 64px;
+    line-height: 56px;
     color: #ffffff;
     font-weight: 700;
-    text-shadow: 3px 3px 6px #000, -2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000, 2px 2px 0 #000;
+    text-shadow: 0 2px 8px rgba(0, 0, 0, 0.85);
     cursor: pointer;
-    letter-spacing: 3px;
-    padding: 8px 28px;
-    background: transparent;
-    border: none;
-    box-shadow: none;
-    backdrop-filter: none;
-    transition: transform 0.12s ease-out, color 0.12s ease-out;
+    letter-spacing: 4px;
+    padding: 12px 52px;
+    background: linear-gradient(135deg, rgba(16, 28, 42, 0.48) 0%, rgba(8, 16, 26, 0.38) 100%);
+    border: 1.5px solid rgba(0, 255, 204, 0.42);
+    border-radius: 16px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.18);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    transition: all 0.2s ease-out;
     user-select: none;
     display: inline-flex;
     align-items: center;
     justify-content: center;
+    gap: 14px;
+}
+
+.click-to-play-btn .play-btn-icon {
+    font-size: 30px;
+    line-height: 1;
+    color: #00ffcc;
+    display: inline-block;
+    transition: transform 0.2s ease-out;
+}
+
+.click-to-play-btn .play-btn-text {
+    position: relative;
+    z-index: 1;
 }
 
 .click-to-play-btn:hover {
-    transform: scale(1.08);
+    transform: translateY(-2px) scale(1.025);
+    color: #ffffff;
+    border-color: #00ffcc;
+    background: linear-gradient(135deg, rgba(22, 38, 56, 0.62) 0%, rgba(12, 22, 34, 0.52) 100%);
+    box-shadow: 0 12px 36px rgba(0, 0, 0, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.28);
+}
+
+.click-to-play-btn:hover .play-btn-icon {
+    transform: translateX(3px) scale(1.1);
     color: #00ffcc;
 }
 
+.click-to-play-btn:active {
+    transform: translateY(1px) scale(0.98);
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.6);
+}
+
 .lobby-instructions {
-    font-size: 13px;
-    color: rgba(255,255,255,0.75);
-    text-shadow: 1px 1px 2px #000;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 6px 12px;
+    padding: 6px 18px;
+    background: rgba(10, 16, 24, 0.58);
+    border: 1px solid rgba(0, 255, 204, 0.28);
+    border-radius: 20px;
+    box-shadow: 0 4px 18px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 12px;
     font-weight: 600;
+    color: #dbe4ee;
+    letter-spacing: 0.4px;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
+    margin: 6px 0;
+    user-select: none;
+}
+
+.lobby-inst-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-weight: 600;
+}
+
+.lobby-key {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2px 6px;
+    min-width: 20px;
+    background: linear-gradient(180deg, rgba(30, 41, 59, 0.85) 0%, rgba(15, 23, 42, 0.92) 100%);
+    border: 1px solid rgba(0, 255, 204, 0.45);
+    border-bottom: 2px solid #00ffcc;
+    border-radius: 4px;
+    color: #00ffcc;
+    font-family: 'Rajdhani', monospace, sans-serif;
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 1.1;
+    letter-spacing: 0.6px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+}
+
+.lobby-inst-dot {
+    color: rgba(0, 255, 204, 0.4);
+    font-size: 10px;
 }
 
 .lobby-bottom-bar {
@@ -1898,6 +2080,134 @@ canvas#renderCanvas {
     margin-bottom: 20px;
 }
 
+/* Post-Match Summary & Leaderboard Modal Responsiveness (<800px viewports) */
+#scoreboard-modal .striker-modal-card {
+    max-height: 85vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    box-sizing: border-box;
+    padding: 24px 28px 18px 28px;
+}
+
+#scoreboard-modal .striker-modal-header {
+    flex-shrink: 0;
+}
+
+#scoreboard-modal .match-summary-stats {
+    flex-shrink: 0;
+    margin-bottom: 14px;
+}
+
+#scoreboard-modal .scoreboard-table-wrap {
+    flex: 1 1 auto;
+    min-height: 120px;
+    max-height: calc(85vh - 280px);
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: #00ffcc rgba(10, 14, 20, 0.7);
+    margin-bottom: 14px;
+}
+
+#scoreboard-modal .scoreboard-table-wrap::-webkit-scrollbar {
+    width: 6px;
+}
+
+#scoreboard-modal .scoreboard-table-wrap::-webkit-scrollbar-track {
+    background: rgba(10, 14, 20, 0.7);
+    border-radius: 3px;
+}
+
+#scoreboard-modal .scoreboard-table-wrap::-webkit-scrollbar-thumb {
+    background: #00ffcc;
+    border-radius: 3px;
+    box-shadow: 0 0 6px rgba(0, 255, 204, 0.4);
+}
+
+#scoreboard-modal .scoreboard-table-wrap::-webkit-scrollbar-thumb:hover {
+    background: #00ff88;
+}
+
+#scoreboard-modal .striker-modal-footer {
+    position: sticky;
+    bottom: 0;
+    background: #0d1117;
+    z-index: 10;
+    margin-top: auto;
+    padding-top: 14px;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    flex-shrink: 0;
+}
+
+/* Tactical Toast Notification Center */
+#tactical-toast-container {
+    position: fixed;
+    top: 24px;
+    right: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    z-index: 999999;
+    pointer-events: none;
+}
+
+.tactical-toast {
+    background: rgba(13, 17, 23, 0.95);
+    border: 1px solid rgba(0, 255, 204, 0.35);
+    border-left: 4px solid #00ffcc;
+    border-radius: 4px;
+    padding: 12px 18px;
+    min-width: 320px;
+    max-width: 440px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.85), 0 0 16px rgba(0, 255, 204, 0.2);
+    backdrop-filter: blur(12px);
+    animation: toastSlideIn 0.25s cubic-bezier(0.18, 0.89, 0.32, 1.28);
+    transition: opacity 0.4s ease, transform 0.4s ease;
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    pointer-events: auto;
+}
+
+.tactical-toast.fading {
+    opacity: 0;
+    transform: translateX(30px);
+}
+
+.toast-icon {
+    font-size: 22px;
+    line-height: 1;
+    flex-shrink: 0;
+    margin-top: 2px;
+}
+
+.toast-content {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.toast-title {
+    font-family: 'Teko', sans-serif;
+    font-size: 20px;
+    letter-spacing: 1.5px;
+    color: #00ffcc;
+    line-height: 1.1;
+    text-transform: uppercase;
+}
+
+.toast-desc {
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.85);
+    line-height: 1.35;
+    font-weight: 500;
+}
+
+@keyframes toastSlideIn {
+    0% { opacity: 0; transform: translateX(50px); }
+    100% { opacity: 1; transform: translateX(0); }
+}
+
 table.score-table {
     width: 100%;
     border-collapse: collapse;
@@ -2376,8 +2686,8 @@ tr.player-row {
 /* Scroll Prompt Indicator in Lobby */
 .lobby-scroll-hint {
     text-align: center;
-    padding: 10px 20px;
-    margin: 0 auto;
+    padding: 11px 26px;
+    margin: 20px auto 0 auto;
     font-family: 'Rajdhani', sans-serif;
     font-size: 14px;
     font-weight: 700;
@@ -2385,26 +2695,39 @@ tr.player-row {
     color: #00ffcc;
     text-transform: uppercase;
     cursor: pointer;
-    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8);
-    animation: bounceChevron 1.6s infinite;
+    text-shadow: 0 0 8px rgba(0, 255, 204, 0.6), 1px 1px 3px rgba(0, 0, 0, 0.85);
     display: inline-flex;
     align-items: center;
-    gap: 8px;
-    background: #0e121a;
-    border: 1px solid rgba(255, 255, 255, 0.12);
-    border-radius: 20px;
+    gap: 10px;
+    background: linear-gradient(135deg, rgba(0, 255, 204, 0.12), rgba(10, 25, 35, 0.75));
+    border: 1px solid rgba(0, 255, 204, 0.4);
+    box-shadow: 0 0 15px rgba(0, 255, 204, 0.15), 0 4px 14px rgba(0, 0, 0, 0.5);
+    border-radius: 24px;
     backdrop-filter: blur(8px);
-    transition: all 0.15s ease;
+    -webkit-backdrop-filter: blur(8px);
+    text-decoration: none;
+    transition: all 0.25s ease;
+}
+
+.lobby-scroll-hint .scroll-chevron {
+    display: inline-block;
+    color: #00ffcc;
+    font-size: 12px;
+    animation: bounceChevron 1.6s infinite ease-in-out;
+    filter: drop-shadow(0 0 6px rgba(0, 255, 204, 0.8));
 }
 
 .lobby-scroll-hint:hover {
-    background: rgba(0, 255, 204, 0.15);
-    transform: translateY(2px);
+    background: linear-gradient(135deg, rgba(0, 255, 204, 0.24), rgba(12, 32, 48, 0.88));
+    border-color: rgba(0, 255, 204, 0.85);
+    box-shadow: 0 0 20px rgba(0, 255, 204, 0.4), 0 6px 18px rgba(0, 0, 0, 0.6);
+    transform: translateY(3px) scale(1.02);
+    color: #ffffff;
 }
 
 @keyframes bounceChevron {
     0%, 100% { transform: translateY(0); }
-    50% { transform: translateY(6px); }
+    50% { transform: translateY(5px); }
 }
 
 /* Mobile Responsiveness Alert */

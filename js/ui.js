@@ -50,10 +50,23 @@ class UIManager {
         this.currentPing = 28;
         this.lastPingUpdate = performance.now();
 
+        // Dynamic Chat & Event Feed
+        this.chatBox = document.getElementById('chat-box');
+
+        // Dynamic Crosshair Bloom State
+        this.crosshairEl = document.getElementById('crosshair');
+        this.crosshairSpread = 0;
+        this.crosshairRecoilImpulse = 0;
+        this.lastAppliedSpread = -1;
+        this.isCrosshairAds = false;
+
         this.initSettings();
         this.initScoreboardModal();
         this.initLobbyInteractions();
-        this.startMatchTimer();
+        if (this.matchTimer) {
+            this.matchTimer.innerText = '03:00';
+        }
+        this.updateLiveLeaderboard(null, null);
     }
 
     initSettings() {
@@ -142,14 +155,40 @@ class UIManager {
 
         const respawnBtn = document.getElementById('btn-respawn');
         if (respawnBtn) {
-            respawnBtn.addEventListener('click', () => {
+            respawnBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
                 if (window.playerController) window.playerController.respawn();
+            });
+        }
+
+        // Global Space/Enter immediate respawn when eliminated (zero focus friction)
+        window.addEventListener('keydown', (e) => {
+            const isEliminated = (window.playerController && window.playerController.isDead) ||
+                                 (this.deathScreen && this.deathScreen.style.display === 'flex');
+            if (isEliminated && (e.code === 'Space' || e.code === 'Enter')) {
+                e.preventDefault();
+                e.stopPropagation();
+                if (window.playerController) {
+                    window.playerController.respawn();
+                }
+            }
+        }, true);
+
+        // Click anywhere on death screen overlay also respawns
+        if (this.deathScreen) {
+            this.deathScreen.addEventListener('click', () => {
+                if (window.playerController && window.playerController.isDead) {
+                    window.playerController.respawn();
+                }
             });
         }
 
         const resumeBtn = document.getElementById('btn-resume');
         if (resumeBtn) {
             resumeBtn.addEventListener('click', () => {
+                if (window.game && typeof window.game.setPaused === 'function') {
+                    window.game.setPaused(false);
+                }
                 document.body.requestPointerLock();
             });
         }
@@ -399,40 +438,44 @@ class UIManager {
             }
         });
 
-        // --- 4. Extra Lobby Action Buttons (Ranked, Host, Find, Custom) ---
-        const lobbyButtons = [
-            document.getElementById('btn-ranked'),
-            document.getElementById('btn-host'),
-            document.getElementById('btn-find'),
-            document.getElementById('btn-custom')
-        ].filter(Boolean);
+        // --- 4. Extra Lobby Action Buttons (Ranked, Host, Find, Custom) with Tactical Toast Notifications ---
+        const secondaryModeConfigs = [
+            { id: 'btn-ranked', title: 'RANKED MATCHMAKING', desc: 'Multiplayer & Ranked Matchmaking arriving in upcoming update // Solo Skirmish active', icon: '🎖️' },
+            { id: 'btn-host', title: 'HOST GAME LOBBY', desc: 'Custom multiplayer room hosting arriving in upcoming update // Solo Skirmish active', icon: '🏠' },
+            { id: 'btn-find', title: 'SERVER BROWSER', desc: 'Global multiplayer server browser arriving in upcoming update // Solo Skirmish active', icon: '🔍' },
+            { id: 'btn-custom', title: 'CUSTOM GAMES', desc: 'Custom match rules & lobby creator arriving in upcoming update // Solo Skirmish active', icon: '🎮' }
+        ];
 
-        lobbyButtons.forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                if (window.soundEngine) {
-                    window.soundEngine.resume();
-                    window.soundEngine.playShoot('revolver');
-                }
-                // Launch match
-                const startBtn = document.getElementById('btn-start-game');
-                if (startBtn) startBtn.click();
-            });
+        secondaryModeConfigs.forEach(cfg => {
+            const btn = document.getElementById(cfg.id);
+            if (btn) {
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    e.preventDefault();
+                    this.showToast(cfg.title, cfg.desc, cfg.icon);
+                });
+            }
         });
     }
 
     startMatchTimer() {
         if (this.timerInterval) clearInterval(this.timerInterval);
+        const updateTimerDisplay = () => {
+            const mins = Math.floor(this.matchTimeRemaining / 60);
+            const secs = this.matchTimeRemaining % 60;
+            if (this.matchTimer) {
+                this.matchTimer.innerText = `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+            }
+        };
+        updateTimerDisplay();
         this.timerInterval = setInterval(() => {
+            if (!window.game || !window.game.isGameStarted) return;
+            if (window.game && window.game.isPaused) return;
             if (this.isMatchEnded) return;
 
             if (this.matchTimeRemaining > 0) {
                 this.matchTimeRemaining--;
-                const mins = Math.floor(this.matchTimeRemaining / 60);
-                const secs = this.matchTimeRemaining % 60;
-                if (this.matchTimer) {
-                    this.matchTimer.innerText = `${mins}:${secs < 10 ? '0' : ''}${secs}`;
-                }
+                updateTimerDisplay();
             } else {
                 this.endMatch();
             }
@@ -440,6 +483,7 @@ class UIManager {
     }
 
     endMatch() {
+        if (!window.game || !window.game.isGameStarted) return;
         if (this.isMatchEnded) return;
         this.isMatchEnded = true;
 
@@ -501,6 +545,10 @@ class UIManager {
         }
     }
 
+    showScoreboard() {
+        this.endMatch();
+    }
+
     startNewMatch() {
         this.clearLowHealthEffects();
         this.isMatchEnded = false;
@@ -557,6 +605,10 @@ class UIManager {
         if (alphaEl) alphaEl.innerText = '0';
         if (omegaEl) omegaEl.innerText = '0';
 
+        // Start match timer and reset live leaderboard
+        this.startMatchTimer();
+        this.updateLiveLeaderboard(window.playerController, window.botManager);
+
         // Re-engage pointer lock
         document.body.requestPointerLock();
     }
@@ -601,6 +653,7 @@ class UIManager {
 
     // Dopamine Kill Medals & Popup System
     triggerKillMedal(streak = 1, isHeadshot = false, points = 100, combo = 1) {
+        this.updateLiveLeaderboard(window.playerController, window.botManager);
         if (!this.killMedalContainer) return;
 
         let title = 'ELIMINATED';
@@ -652,14 +705,162 @@ class UIManager {
         }, 850);
     }
 
-    expandCrosshair() {
-        const ch = document.getElementById('crosshair');
+    triggerCrosshairRecoil(amount = 4.0) {
+        this.crosshairRecoilImpulse = Math.min(10.0, this.crosshairRecoilImpulse + amount);
+    }
+
+    updateCrosshairBloom(dt) {
+        if (!this.crosshairEl) {
+            this.crosshairEl = document.getElementById('crosshair');
+            if (!this.crosshairEl) return;
+        }
+
+        const ws = window.weaponSystem;
+        const player = window.playerController;
+
+        if (ws && ws.isAiming) {
+            // Instant snap-collapse when aiming down sights (ADS)
+            if (!this.isCrosshairAds) {
+                this.crosshairEl.classList.add('ads');
+                this.isCrosshairAds = true;
+            }
+            this.crosshairSpread = 0;
+            this.crosshairRecoilImpulse = 0;
+            if (this.lastAppliedSpread !== 0) {
+                this.crosshairEl.style.setProperty('--ch-spread', '0px');
+                this.lastAppliedSpread = 0;
+            }
+            return;
+        }
+
+        if (this.isCrosshairAds) {
+            this.crosshairEl.classList.remove('ads');
+            this.isCrosshairAds = false;
+        }
+
+        let targetSpread = 0;
+        if (player) {
+            // Jump air-time bloom expansion
+            if (!player.isGrounded) {
+                targetSpread += 6.5;
+            }
+
+            // High-speed slide-hopping & sprint bloom
+            const horizontalSpeed = Math.hypot(player.velocity.x, player.velocity.z);
+            if (horizontalSpeed > 7.0) {
+                targetSpread += Math.min(8.0, (horizontalSpeed - 7.0) * 0.45);
+            }
+        }
+
+        // Weapon firing recoil bloom decay
+        if (this.crosshairRecoilImpulse > 0) {
+            targetSpread += this.crosshairRecoilImpulse;
+            this.crosshairRecoilImpulse = Math.max(0, this.crosshairRecoilImpulse - dt * 24.0);
+        }
+
+        // Smooth spring lerp (zero GC allocations, zero thrashing)
+        this.crosshairSpread += (targetSpread - this.crosshairSpread) * Math.min(1.0, dt * 18.0);
+
+        const roundedSpread = Math.round(this.crosshairSpread * 10) / 10;
+        if (Math.abs(roundedSpread - this.lastAppliedSpread) >= 0.15) {
+            this.crosshairEl.style.setProperty('--ch-spread', `${roundedSpread}px`);
+            this.lastAppliedSpread = roundedSpread;
+        }
+    }
+
+    expandCrosshair(amount = 4.0) {
+        this.triggerCrosshairRecoil(amount);
+        const ch = this.crosshairEl || document.getElementById('crosshair');
         if (!ch) return;
         ch.classList.add('firing');
         if (this.crosshairTimeout) clearTimeout(this.crosshairTimeout);
         this.crosshairTimeout = setTimeout(() => {
             ch.classList.remove('firing');
         }, 75);
+    }
+
+    showToast(title, message, icon = '🎖️', duration = 3800) {
+        let container = document.getElementById('tactical-toast-container');
+        if (!container) {
+            container = document.createElement('div');
+            container.id = 'tactical-toast-container';
+            document.body.appendChild(container);
+        }
+
+        const toast = document.createElement('div');
+        toast.className = 'tactical-toast';
+        toast.innerHTML = `
+            <div class="toast-icon">${icon}</div>
+            <div class="toast-content">
+                <div class="toast-title">${title}</div>
+                <div class="toast-desc">${message}</div>
+            </div>
+        `;
+        container.appendChild(toast);
+
+        if (window.soundEngine && typeof window.soundEngine.playEmptyClick === 'function') {
+            window.soundEngine.playEmptyClick();
+        }
+
+        setTimeout(() => {
+            toast.classList.add('fading');
+        }, duration - 400);
+
+        setTimeout(() => {
+            if (toast.parentNode) {
+                toast.parentNode.removeChild(toast);
+            }
+        }, duration);
+    }
+
+    addChatEvent(html, type = 'system') {
+        if (!this.chatBox) {
+            this.chatBox = document.getElementById('chat-box');
+        }
+        if (!this.chatBox) return;
+
+        const div = document.createElement('div');
+        div.className = `chat-msg ${type}-msg`;
+        div.innerHTML = html;
+        this.chatBox.appendChild(div);
+
+        // Limit visible messages to prevent viewport occlusion
+        while (this.chatBox.children.length > 5) {
+            const first = this.chatBox.firstElementChild;
+            if (first) this.chatBox.removeChild(first);
+        }
+
+        // 5-second lifetime: 4.5s fade-out, 5.0s cleanup
+        setTimeout(() => {
+            div.classList.add('fading');
+        }, 4500);
+
+        setTimeout(() => {
+            if (div.parentNode) {
+                div.parentNode.removeChild(div);
+            }
+        }, 5000);
+    }
+
+    addChatJoinMessage(name) {
+        this.addChatEvent(`<span class="chat-name bot">${name}</span> joined the game`, 'system');
+    }
+
+    addChatKillMessage(killer, victim, weapon, isHeadshot) {
+        const killerClass = killer === 'YOU' ? 'player' : 'bot';
+        const victimClass = victim === 'YOU' ? 'player' : 'bot';
+        const headshotTag = isHeadshot ? ' <span style="color:#ff2a5f;font-size:11px;">★</span>' : '';
+        this.addChatEvent(`<span class="chat-name ${killerClass}">${killer}</span> eliminated <span class="chat-name ${victimClass}">${victim}</span> <span class="chat-weapon-badge">[${weapon}]</span>${headshotTag}`, 'kill');
+    }
+
+    addChatStreakMessage(name, streak) {
+        const nameClass = name === 'YOU' ? 'player' : 'bot';
+        this.addChatEvent(`🔥 <span class="chat-name ${nameClass}">${name}</span> is on a ${streak} Kill Streak!`, 'streak');
+    }
+
+    addChatBoosterMessage(collector, boosterName) {
+        const nameClass = collector === 'YOU' ? 'player' : 'bot';
+        this.addChatEvent(`⚡ <span class="chat-name ${nameClass}">${collector}</span> picked up <span class="chat-booster-name">${boosterName}</span>!`, 'booster');
     }
 
     updateHealth(hp, maxHp = 100, shield = 0, maxShield = 50) {
@@ -1212,9 +1413,12 @@ class UIManager {
     updateScore(score, streak) {
         if (this.matchScore) this.matchScore.innerText = score;
         if (this.matchStreak) this.matchStreak.innerText = streak > 1 ? `${streak}X STREAK` : '';
+        this.updateLiveLeaderboard(window.playerController, window.botManager);
     }
 
     addKillfeedItem(killer, victim, weapon, isHeadshot) {
+        this.addChatKillMessage(killer, victim, weapon, isHeadshot);
+
         if (!this.killfeed) return;
         const div = document.createElement('div');
         div.className = `feed-item ${isHeadshot ? 'headshot' : ''}`;
@@ -1372,6 +1576,69 @@ class UIManager {
             `;
         });
         this.scoreboardBody.innerHTML = html;
+    }
+
+    updateLiveLeaderboard(player, botManager) {
+        player = player || window.playerController;
+        botManager = botManager || window.botManager;
+
+        const entries = [];
+        const pScore = (player && typeof player.score === 'number') ? player.score : 0;
+        const pKills = (player && typeof player.kills === 'number') ? player.kills : 0;
+
+        entries.push({
+            name: 'YOU',
+            score: pScore,
+            kills: pKills,
+            isPlayer: true
+        });
+
+        if (botManager && Array.isArray(botManager.bots)) {
+            botManager.bots.forEach(b => {
+                entries.push({
+                    name: b.name || 'Bot',
+                    score: typeof b.score === 'number' ? b.score : 0,
+                    kills: typeof b.kills === 'number' ? b.kills : 0,
+                    isPlayer: false
+                });
+            });
+        }
+
+        // Sort descending by score, tiebreaker by kills descending
+        entries.sort((a, b) => (b.score - a.score) || (b.kills - a.kills));
+
+        // Update #score-alpha (player score) and #score-omega (leading bot score, or 0 if none)
+        const alphaEl = document.getElementById('score-alpha');
+        const omegaEl = document.getElementById('score-omega');
+        if (alphaEl) {
+            alphaEl.innerText = pScore;
+        }
+
+        const topBot = entries.find(e => !e.isPlayer);
+        const leadingBotScore = topBot ? topBot.score : 0;
+        if (omegaEl) {
+            omegaEl.innerText = leadingBotScore;
+        }
+
+        // Render top 6 entries in #top-right-leaderboard HUD card
+        const lbContainer = document.getElementById('top-right-leaderboard');
+        if (lbContainer) {
+            const top6 = entries.slice(0, 6);
+            let html = '';
+            top6.forEach((entry, idx) => {
+                const rank = idx + 1;
+                const rankClass = rank === 1 ? 'rank-1' : (rank === 2 ? 'rank-2' : '');
+                const playerClass = entry.isPlayer ? 'rank-player is-player' : '';
+                html += `
+                    <div class="leaderboard-entry ${rankClass} ${playerClass}">
+                        <span class="lb-rank">${rank}.</span>
+                        <span class="lb-name">${entry.name}</span>
+                        <span class="lb-score">${entry.score}</span>
+                    </div>
+                `;
+            });
+            lbContainer.innerHTML = html;
+        }
     }
 
     clearAllBoosters() {

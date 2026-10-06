@@ -29,6 +29,8 @@ const _moveDir = new THREE.Vector3();
 const _nextFull = new THREE.Vector3();
 const _surfaceNormal = new THREE.Vector3();
 const _unstuckDir = new THREE.Vector3();
+const _botBulletRay = new THREE.Raycaster();
+const _wallHitNormal = new THREE.Vector3();
 
 // Combat Archetypes & Personality Matrix
 const BOT_ARCHETYPES = {
@@ -688,9 +690,14 @@ class Bot {
                 if (killer.streak >= 3 && window.boosterManager && Math.random() < 0.35) {
                     window.boosterManager.spawnMultiKillDrop(this.position);
                 }
+
+                if (killer.streak >= 3 && (killer.streak === 3 || killer.streak === 5 || killer.streak === 10 || killer.streak % 5 === 0)) {
+                    window.uiManager.addChatStreakMessage(killerName, killer.streak);
+                }
             }
 
             window.uiManager.addKillfeedItem(killerName, this.name, weaponName || 'RIFLE', isHeadshot);
+            window.uiManager.updateLiveLeaderboard(killer || window.playerController, window.botManager);
         }
     }
 
@@ -800,8 +807,11 @@ class Bot {
             } else {
                 // Lost LOS (player broke behind cover)
                 this.lostTargetTimer = (this.lostTargetTimer || 0) + dt;
+                // Target lock breaks immediately when visual contact is broken into cover
+                this.hasLockedTarget = false;
+                this.targetLockTimer = 0;
 
-                // Hunter pursuit behavior: tracks last known position before resetting
+                // Hunter pursuit behavior: tracks last known position before resetting to patrol
                 if (this.archetype === 'HUNTER' && this.hasLastKnownPos && this.lostTargetTimer < this.targetMemory && isGameStarted && player && !player.isDead) {
                     const distToLast = this.position.distanceTo(this.lastKnownPlayerPos);
                     if (distToLast > 2.5) {
@@ -814,6 +824,7 @@ class Bot {
                         this.pickNextWaypoint();
                     }
                 } else if (this.lostTargetTimer > this.targetMemory || !player || player.isDead) {
+                    // Memory expired: Bot has completely forgotten the player! Return to patrol
                     this.hasLockedTarget = false;
                     this.targetLockTimer = 0;
                     this.hasLastKnownPos = false;
@@ -850,8 +861,9 @@ class Bot {
 
         // State Behaviors
         if (this.state === 'ENGAGE' && player && !player.isDead && isGameStarted) {
-            const dx = (hasLos || !this.hasLastKnownPos) ? (playerPos.x - this.position.x) : (this.lastKnownPlayerPos.x - this.position.x);
-            const dz = (hasLos || !this.hasLastKnownPos) ? (playerPos.z - this.position.z) : (this.lastKnownPlayerPos.z - this.position.z);
+            const targetP = (hasLos || !this.hasLastKnownPos) ? playerPos : this.lastKnownPlayerPos;
+            const dx = targetP.x - this.position.x;
+            const dz = targetP.z - this.position.z;
             this.targetRotationY = Math.atan2(dx, dz);
 
             // Strafe rhythms tailored per archetype
@@ -905,41 +917,45 @@ class Bot {
             const sideZ = -Math.sin(this.targetRotationY) * this.strafeDir * totalStrafeSpeed;
 
             // Spacing management tailored per archetype
+            const engageDist = (hasLos || !this.hasLastKnownPos) ? distToPlayer : this.position.distanceTo(this.lastKnownPlayerPos);
             let forwardPush = 0;
             if (this.archetype === 'HUNTER') {
-                if (distToPlayer > 12) {
+                if (engageDist > 12) {
                     forwardPush = 4.2;
-                } else if (distToPlayer > 6) {
+                } else if (engageDist > 6) {
                     forwardPush = 2.4;
-                } else if (distToPlayer < 4) {
+                } else if (engageDist < 4) {
                     forwardPush = -2.0;
                 } else {
                     forwardPush = 0.8;
                 }
             } else if (this.archetype === 'FLANKER') {
-                if (distToPlayer > 18) {
+                if (engageDist > 18) {
                     forwardPush = 3.2;
-                } else if (distToPlayer < 9) {
+                } else if (engageDist < 9) {
                     forwardPush = -4.2;
                 } else {
                     forwardPush = Math.sin(this.walkCycle * 0.9) * 1.2;
                 }
             } else if (this.archetype === 'SURVIVOR') {
-                if (distToPlayer > 24) {
+                if (engageDist > 24) {
                     forwardPush = 2.6;
-                } else if (distToPlayer < 14) {
+                } else if (engageDist < 14) {
                     forwardPush = -4.5;
                 } else {
                     forwardPush = -1.2;
                 }
             } else {
-                if (distToPlayer > 18) {
+                if (engageDist > 18) {
                     forwardPush = 3.35;
-                } else if (distToPlayer < 7.5) {
+                } else if (engageDist < 7.5) {
                     forwardPush = -4.0;
                 } else {
                     forwardPush = Math.sin(this.walkCycle * 0.8) * 1.45;
                 }
+            }
+            if (!hasLos && this.archetype !== 'HUNTER') {
+                forwardPush *= 0.25; // Don't bulldoze blindly into cover when player broke LOS
             }
             forwardPush *= speedMultiplier * moveMultiplier;
 
@@ -952,7 +968,7 @@ class Bot {
             }
 
             // Requirement 3: Enforce forward FOV Frustum cone AND LOS before firing!
-            if (this.hasLockedTarget) {
+            if (this.hasLockedTarget && hasLos) {
                 this.attackCooldown -= dt;
                 if (this.attackCooldown <= 0) {
                     if (this.isPlayerInFrustumCone(playerPos) && this.map.hasLineOfSight(_botEyePos, _playerEyePos)) {
@@ -960,9 +976,12 @@ class Bot {
                         this.fireAtPlayer(player, _botEyePos, _playerEyePos, distToPlayer);
                     } else {
                         // Hold fire until rotated into forward frustum cone
-                        this.attackCooldown = 0.05;
+                        this.attackCooldown = 0.10;
                     }
                 }
+            } else if (!hasLos) {
+                // When line of sight is broken, maintain reaction cooldown so bot doesn't insta-fire upon re-peek
+                this.attackCooldown = Math.max(this.attackCooldown, this.reactionTime);
             }
 
         } else if (this.state === 'TAKE_COVER') {
@@ -1104,8 +1123,9 @@ class Bot {
         let targetPitch = 0;
         const isEngagingPlayer = (this.state === 'ENGAGE' || this.state === 'TAKE_COVER') && playerPos && !player.isDead && isGameStarted;
         if (isEngagingPlayer) {
-            const distH = Math.hypot(playerPos.x - this.position.x, playerPos.z - this.position.z);
-            const dy = playerPos.y - (this.position.y + 1.76);
+            const targetPos = (hasLos || !this.hasLastKnownPos) ? playerPos : this.lastKnownPlayerPos;
+            const distH = Math.hypot(targetPos.x - this.position.x, targetPos.z - this.position.z);
+            const dy = (targetPos.y || 1.7) - (this.position.y + 1.76);
             targetPitch = Math.atan2(dy, Math.max(0.1, distH));
             // Anatomical pitch clamp (-48° to +48°)
             targetPitch = Math.max(-0.85, Math.min(0.85, targetPitch));
@@ -1229,7 +1249,21 @@ class Bot {
         _aimDir.normalize();
 
         const maxShotDist = 70;
-        _tracerEnd.copy(botEyePos).addScaledVector(_aimDir, maxShotDist);
+
+        // Cast bullet ray along aim direction to detect world obstacles (crates, walls)
+        _botBulletRay.set(botEyePos, _aimDir);
+        _botBulletRay.near = 0.2;
+        _botBulletRay.far = maxShotDist;
+        const obstacleHits = _botBulletRay.intersectObjects(this.map.shootableMeshes, false);
+        const obstacleDist = (obstacleHits.length > 0) ? obstacleHits[0].distance : maxShotDist;
+
+        if (obstacleHits.length > 0) {
+            _tracerEnd.copy(obstacleHits[0].point);
+            const hitNormal = (obstacleHits[0].face && obstacleHits[0].face.normal) ? obstacleHits[0].face.normal : _wallHitNormal.set(0, 1, 0);
+            this.particles.createWallImpact(obstacleHits[0].point, hitNormal);
+        } else {
+            _tracerEnd.copy(botEyePos).addScaledVector(_aimDir, maxShotDist);
+        }
 
         this.audio.playBotShoot(distToPlayer);
         this.particles.createTracer(botEyePos, _tracerEnd, 0xff9900);
@@ -1241,7 +1275,9 @@ class Bot {
         _toPlayer.subVectors(_playerCenter, botEyePos);
         const projection = _toPlayer.dot(_aimDir);
 
-        if (projection > 0 && projection < distToPlayer + 2) {
+        // Crucial invariant: Bullets can NEVER penetrate cover!
+        // The bullet can hit the player ONLY if it reaches the player BEFORE hitting any obstacle!
+        if (projection > 0 && projection < distToPlayer + 2 && projection < obstacleDist) {
             _closestPoint.copy(botEyePos).addScaledVector(_aimDir, projection);
             const hitDistance = _closestPoint.distanceTo(_playerCenter);
 
@@ -1249,7 +1285,16 @@ class Bot {
                 // Scaled down by exactly 30% across all archetypes for balanced arcade accessibility
                 const rawDmg = 11 + Math.floor(Math.random() * 5);
                 const baseDmg = Math.max(1, Math.round(rawDmg * (this.damageMultiplier || 0.70)));
+                const prevHp = player.health;
                 player.takeDamage(baseDmg, this.position);
+                if (prevHp > 0 && player.health <= 0) {
+                    this.kills++;
+                    this.score += 100;
+                    if (window.uiManager) {
+                        window.uiManager.addKillfeedItem(this.name, 'YOU', this.weaponType || 'RIFLE', false);
+                        window.uiManager.updateLiveLeaderboard(player, window.botManager);
+                    }
+                }
             }
         }
     }
@@ -1280,6 +1325,9 @@ class BotManager {
             { id: 8, name: 'Apex_11', archetype: 'CAMPER', roleTitle: 'Camper' },
             { id: 9, name: 'Striker_7', archetype: 'SURVIVOR', roleTitle: 'Survivor' }
         ];
+
+        this.skirmishTimer = 0;
+        this.nextSkirmishInterval = 3.0 + Math.random() * 2.0;
 
         this.initBots();
     }
@@ -1328,6 +1376,38 @@ class BotManager {
             const dist = playerPos ? bot.position.distanceTo(playerPos) : 0;
             const inFrustum = frustumReady ? this.cameraFrustum.containsPoint(bot.position) : true;
             bot.update(dt, player, inFrustum, dist);
+        }
+
+        // Simulate occasional bot skirmishes in the background (every 3-5 seconds)
+        // when match is actively running to make arena feel alive
+        if (window.game && window.game.isGameStarted && !window.game.isPaused && this.bots.length >= 2) {
+            this.skirmishTimer = (this.skirmishTimer || 0) + dt;
+            if (this.skirmishTimer >= (this.nextSkirmishInterval || 3.5)) {
+                this.skirmishTimer = 0;
+                this.nextSkirmishInterval = 3.0 + Math.random() * 2.0;
+
+                // Pick two random distinct bots
+                const idxA = Math.floor(Math.random() * this.bots.length);
+                let idxB = Math.floor(Math.random() * (this.bots.length - 1));
+                if (idxB >= idxA) idxB++;
+
+                const botA = this.bots[idxA];
+                const botB = this.bots[idxB];
+
+                if (botA && botB) {
+                    botA.kills = (botA.kills || 0) + 1;
+                    botA.score = (botA.score || 0) + 100;
+                    botB.deaths = (botB.deaths || 0) + 1;
+
+                    if (window.uiManager) {
+                        const skirmishWeapons = ['AR-47', 'SMG-9', 'AWM', 'REVOLVER', 'SHOTGUN'];
+                        const weapon = skirmishWeapons[Math.floor(Math.random() * skirmishWeapons.length)];
+                        const isHead = Math.random() < 0.25;
+                        window.uiManager.addKillfeedItem(botA.name, botB.name, weapon, isHead);
+                        window.uiManager.updateLiveLeaderboard(player || window.playerController, this);
+                    }
+                }
+            }
         }
     }
 }

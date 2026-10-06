@@ -101,13 +101,25 @@ class PlayerController {
 
         document.addEventListener('pointerlockchange', () => {
             this.isLocked = document.pointerLockElement === document.body;
-            const pauseMenu = document.getElementById('pause-menu');
-            if (!this.isLocked && !this.isDead) {
-                if (pauseMenu && window.game && window.game.isGameStarted) pauseMenu.style.display = 'flex';
-            } else {
-                if (pauseMenu) pauseMenu.style.display = 'none';
+            if (window.game && window.game.isGameStarted) {
+                const isMatchEnded = window.game.ui && window.game.ui.isMatchEnded;
+                if (!this.isLocked && !this.isDead && !isMatchEnded) {
+                    window.game.setPaused(true);
+                } else if (this.isLocked) {
+                    window.game.setPaused(false);
+                }
             }
         });
+
+        const resumeBtn = document.getElementById('btn-resume');
+        if (resumeBtn) {
+            resumeBtn.addEventListener('click', () => {
+                if (window.game && typeof window.game.setPaused === 'function') {
+                    window.game.setPaused(false);
+                }
+                document.body.requestPointerLock();
+            });
+        }
 
         document.addEventListener('mousemove', (e) => {
             if (!window.game || !window.game.isGameStarted) return;
@@ -329,6 +341,7 @@ class PlayerController {
         if (window.uiManager) {
             window.uiManager.updateHealth(0, this.maxHealth, 0, this.maxShield);
             window.uiManager.showDeathScreen();
+            window.uiManager.updateLiveLeaderboard(this, window.botManager);
         }
     }
 
