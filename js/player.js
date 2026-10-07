@@ -137,7 +137,23 @@ class PlayerController {
             }
 
             this.yawObject.rotation.y -= (e.movementX || 0) * effectiveSens;
-            this.pitchObject.rotation.x -= (e.movementY || 0) * effectiveSens;
+
+            const my = (e.movementY || 0);
+            const pitchDelta = my * effectiveSens;
+
+            // CS2 Mouse Pull-Down Spray Control: pulling down against recoil actively counters camera climb
+            const ws = window.weaponSystem;
+            if (my > 0 && ws && ws.cameraRecoil && ws.cameraRecoil.pitch > 0) {
+                if (ws.cameraRecoil.pitch >= pitchDelta) {
+                    ws.cameraRecoil.pitch -= pitchDelta;
+                } else {
+                    const remainder = pitchDelta - ws.cameraRecoil.pitch;
+                    ws.cameraRecoil.pitch = 0;
+                    this.pitchObject.rotation.x -= remainder;
+                }
+            } else {
+                this.pitchObject.rotation.x -= pitchDelta;
+            }
 
             const maxPitch = Math.PI / 2 - 0.02;
             this.pitchObject.rotation.x = Math.max(-maxPitch, Math.min(maxPitch, this.pitchObject.rotation.x));
@@ -529,6 +545,15 @@ class PlayerController {
         this.pitchObject.rotation.z = this.cameraTilt + shake.roll;
         this.camera.position.x = shake.x;
         this.camera.position.y = shake.y;
+
+        // Tactical Weapon View Recoil (Pitch climb & yaw weave)
+        const ws = window.weaponSystem;
+        const recoilPitch = (ws && ws.cameraRecoil) ? ws.cameraRecoil.pitch : 0;
+        const recoilYaw = (ws && ws.cameraRecoil) ? ws.cameraRecoil.yaw : 0;
+        const maxPitch = Math.PI / 2 - 0.02;
+        const clampedRecoilPitch = Math.max(-maxPitch - this.pitchObject.rotation.x, Math.min(maxPitch - this.pitchObject.rotation.x, recoilPitch));
+        this.camera.rotation.x = clampedRecoilPitch;
+        this.camera.rotation.y = recoilYaw;
 
         if (this.onGround && isMoving && !this.isSliding) {
             this.camera.position.y += Math.sin(this.bobTimer) * 0.035;

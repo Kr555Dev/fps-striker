@@ -60,7 +60,12 @@ class UIManager {
         this.lastAppliedSpread = -1;
         this.isCrosshairAds = false;
 
+        this.crosshairModal = document.getElementById('crosshair-customizer-modal');
+        this.crosshairPreviewEl = document.getElementById('crosshair-preview');
+        this.crosshairModalOrigin = 'lobby';
+
         this.initSettings();
+        this.initCrosshairCustomizer();
         this.initScoreboardModal();
         this.initLobbyInteractions();
         if (this.matchTimer) {
@@ -200,6 +205,304 @@ class UIManager {
                 if (window.weaponSystem) window.weaponSystem.switchWeapon(weaponId);
             });
         });
+    }
+
+    loadCrosshairSettings() {
+        const defaults = {
+            preset: 'cs-pro',
+            size: 5,
+            gap: 3,
+            thick: 2,
+            color: '#ffffff',
+            dot: false,
+            circle: false,
+            lines: true
+        };
+        try {
+            const raw = localStorage.getItem('striker_crosshair_settings');
+            if (raw) {
+                const parsed = JSON.parse(raw);
+                return Object.assign({}, defaults, parsed);
+            }
+        } catch (e) {
+            console.warn('Crosshair settings localStorage load error:', e);
+        }
+        return defaults;
+    }
+
+    saveCrosshairSettings() {
+        try {
+            localStorage.setItem('striker_crosshair_settings', JSON.stringify(this.crosshairSettings));
+        } catch (e) {
+            console.warn('Crosshair settings localStorage save error:', e);
+        }
+    }
+
+    applyCrosshairSettings() {
+        const s = this.crosshairSettings;
+        if (!this.crosshairEl) {
+            this.crosshairEl = document.getElementById('crosshair');
+        }
+        if (!this.crosshairPreviewEl) {
+            this.crosshairPreviewEl = document.getElementById('crosshair-preview');
+        }
+
+        // Global CSS custom variables
+        document.documentElement.style.setProperty('--ch-size', `${s.size}px`);
+        document.documentElement.style.setProperty('--ch-gap', `${s.gap}px`);
+        document.documentElement.style.setProperty('--ch-thick', `${s.thick}px`);
+        document.documentElement.style.setProperty('--ch-color', s.color);
+        document.documentElement.style.setProperty('--ch-dot-size', `${Math.max(2, s.thick + 1)}px`);
+
+        const updateReticle = (el) => {
+            if (!el) return;
+            el.style.setProperty('--ch-size', `${s.size}px`);
+            el.style.setProperty('--ch-gap', `${s.gap}px`);
+            el.style.setProperty('--ch-thick', `${s.thick}px`);
+            el.style.setProperty('--ch-color', s.color);
+            el.style.setProperty('--ch-dot-size', `${Math.max(2, s.thick + 1)}px`);
+
+            if (s.lines === false || s.size <= 0) {
+                el.classList.add('hide-lines');
+            } else {
+                el.classList.remove('hide-lines');
+            }
+
+            if (s.dot) {
+                el.classList.add('has-dot');
+            } else {
+                el.classList.remove('has-dot');
+            }
+
+            if (s.circle) {
+                el.classList.add('has-circle');
+            } else {
+                el.classList.remove('has-circle');
+            }
+        };
+
+        updateReticle(this.crosshairEl);
+        updateReticle(this.crosshairPreviewEl);
+
+        this.syncCrosshairControlsUI();
+    }
+
+    syncCrosshairControlsUI() {
+        const s = this.crosshairSettings;
+
+        const sizeSlider = document.getElementById('ch-slider-size');
+        const sizeVal = document.getElementById('ch-size-val');
+        if (sizeSlider && parseInt(sizeSlider.value) !== s.size) sizeSlider.value = s.size;
+        if (sizeVal && sizeVal.textContent !== `${s.size}px`) sizeVal.textContent = `${s.size}px`;
+
+        const gapSlider = document.getElementById('ch-slider-gap');
+        const gapVal = document.getElementById('ch-gap-val');
+        if (gapSlider && parseInt(gapSlider.value) !== s.gap) gapSlider.value = s.gap;
+        if (gapVal && gapVal.textContent !== `${s.gap}px`) gapVal.textContent = `${s.gap}px`;
+
+        const thickSlider = document.getElementById('ch-slider-thick');
+        const thickVal = document.getElementById('ch-thick-val');
+        if (thickSlider && parseInt(thickSlider.value) !== s.thick) thickSlider.value = s.thick;
+        if (thickVal && thickVal.textContent !== `${s.thick}px`) thickVal.textContent = `${s.thick}px`;
+
+        const dotCheckbox = document.getElementById('ch-toggle-dot');
+        if (dotCheckbox && dotCheckbox.checked !== !!s.dot) dotCheckbox.checked = !!s.dot;
+
+        document.querySelectorAll('.ch-color-btn').forEach(btn => {
+            const btnColor = btn.dataset.color;
+            if (btnColor && btnColor.toLowerCase() === s.color.toLowerCase()) {
+                btn.classList.add('active');
+            } else {
+                btn.classList.remove('active');
+            }
+        });
+
+        document.querySelectorAll('.ch-preset-btn').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.preset === s.preset);
+        });
+    }
+
+    initCrosshairCustomizer() {
+        this.crosshairModal = document.getElementById('crosshair-customizer-modal');
+        this.crosshairPreviewEl = document.getElementById('crosshair-preview');
+        this.crosshairSettings = this.loadCrosshairSettings();
+        this.applyCrosshairSettings();
+
+        // 4 Presets definitions
+        const presets = {
+            'cs-pro': { preset: 'cs-pro', size: 5, gap: 2, thick: 2, color: '#ffffff', dot: false, circle: false, lines: true },
+            'dot': { preset: 'dot', size: 0, gap: 0, thick: 2, color: '#00ffcc', dot: true, circle: false, lines: false },
+            'cyber-cross': { preset: 'cyber-cross', size: 6, gap: 3, thick: 2, color: '#00ffcc', dot: true, circle: false, lines: true },
+            'circle-dot': { preset: 'circle-dot', size: 0, gap: 0, thick: 2, color: '#00ffcc', dot: true, circle: true, lines: false }
+        };
+
+        // Preset buttons
+        document.querySelectorAll('.ch-preset-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const presetKey = btn.dataset.preset;
+                if (presets[presetKey]) {
+                    this.crosshairSettings = Object.assign({}, presets[presetKey]);
+                    this.applyCrosshairSettings();
+                    this.saveCrosshairSettings();
+                    if (window.soundEngine && typeof window.soundEngine.playEmptyClick === 'function') {
+                        window.soundEngine.playEmptyClick();
+                    }
+                }
+            });
+        });
+
+        // Sliders
+        const sizeSlider = document.getElementById('ch-slider-size');
+        if (sizeSlider) {
+            sizeSlider.addEventListener('input', (e) => {
+                this.crosshairSettings.size = parseInt(e.target.value);
+                this.crosshairSettings.lines = this.crosshairSettings.size > 0;
+                this.crosshairSettings.circle = false;
+                this.crosshairSettings.preset = 'custom';
+                this.applyCrosshairSettings();
+                this.saveCrosshairSettings();
+            });
+        }
+
+        const gapSlider = document.getElementById('ch-slider-gap');
+        if (gapSlider) {
+            gapSlider.addEventListener('input', (e) => {
+                this.crosshairSettings.gap = parseInt(e.target.value);
+                this.crosshairSettings.preset = 'custom';
+                this.applyCrosshairSettings();
+                this.saveCrosshairSettings();
+            });
+        }
+
+        const thickSlider = document.getElementById('ch-slider-thick');
+        if (thickSlider) {
+            thickSlider.addEventListener('input', (e) => {
+                this.crosshairSettings.thick = parseInt(e.target.value);
+                this.crosshairSettings.preset = 'custom';
+                this.applyCrosshairSettings();
+                this.saveCrosshairSettings();
+            });
+        }
+
+        // Color buttons
+        document.querySelectorAll('.ch-color-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const color = btn.dataset.color;
+                if (color) {
+                    this.crosshairSettings.color = color;
+                    this.applyCrosshairSettings();
+                    this.saveCrosshairSettings();
+                    if (window.soundEngine && typeof window.soundEngine.playEmptyClick === 'function') {
+                        window.soundEngine.playEmptyClick();
+                    }
+                }
+            });
+        });
+
+        // Center dot checkbox
+        const dotCheckbox = document.getElementById('ch-toggle-dot');
+        if (dotCheckbox) {
+            dotCheckbox.addEventListener('change', (e) => {
+                this.crosshairSettings.dot = !!e.target.checked;
+                this.crosshairSettings.preset = 'custom';
+                this.applyCrosshairSettings();
+                this.saveCrosshairSettings();
+            });
+        }
+
+        // Prevent click bleed into game pointer lock
+        if (this.crosshairModal) {
+            this.crosshairModal.addEventListener('click', (e) => {
+                e.stopPropagation();
+            });
+        }
+
+        // Pause menu crosshair settings button
+        const pauseCrosshairBtn = document.getElementById('btn-crosshair-settings');
+        if (pauseCrosshairBtn) {
+            pauseCrosshairBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.openCrosshairModal('pause');
+            });
+        }
+
+        // Lobby top bar crosshair button
+        const lobbyCrosshairBtn = document.getElementById('btn-lobby-crosshair');
+        if (lobbyCrosshairBtn) {
+            lobbyCrosshairBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.openCrosshairModal('lobby');
+            });
+        }
+
+        // Modal close buttons
+        const closeCrosshairBtn = document.getElementById('btn-close-crosshair');
+        if (closeCrosshairBtn) {
+            closeCrosshairBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.closeCrosshairModal();
+            });
+        }
+
+        const closeCrosshairX = document.getElementById('btn-close-crosshair-x');
+        if (closeCrosshairX) {
+            closeCrosshairX.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.closeCrosshairModal();
+            });
+        }
+
+        // Keyboard Escape handler
+        window.addEventListener('keydown', (e) => {
+            if (e.code === 'Escape') {
+                if (this.crosshairModal && this.crosshairModal.style.display === 'flex') {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    this.closeCrosshairModal();
+                }
+            }
+        }, true);
+    }
+
+    openCrosshairModal(origin = 'lobby') {
+        this.crosshairModalOrigin = origin;
+        if (!this.crosshairModal) {
+            this.crosshairModal = document.getElementById('crosshair-customizer-modal');
+        }
+        if (!this.crosshairModal) return;
+
+        if (origin === 'pause') {
+            const pauseMenu = document.getElementById('pause-menu');
+            if (pauseMenu) pauseMenu.style.display = 'none';
+        }
+
+        this.syncCrosshairControlsUI();
+        this.crosshairModal.style.display = 'flex';
+        if (window.soundEngine && typeof window.soundEngine.playEmptyClick === 'function') {
+            window.soundEngine.playEmptyClick();
+        }
+    }
+
+    closeCrosshairModal() {
+        if (!this.crosshairModal) {
+            this.crosshairModal = document.getElementById('crosshair-customizer-modal');
+        }
+        if (this.crosshairModal) {
+            this.crosshairModal.style.display = 'none';
+        }
+
+        if (window.soundEngine && typeof window.soundEngine.playEmptyClick === 'function') {
+            window.soundEngine.playEmptyClick();
+        }
+
+        if (this.crosshairModalOrigin === 'pause' && window.game && window.game.isGameStarted) {
+            const pauseMenu = document.getElementById('pause-menu');
+            if (pauseMenu) {
+                pauseMenu.style.display = 'flex';
+            }
+        }
     }
 
     initScoreboardModal() {
@@ -561,6 +864,9 @@ class UIManager {
         if (this.scoreboardModal) {
             this.scoreboardModal.style.display = 'none';
         }
+        if (this.crosshairModal) {
+            this.crosshairModal.style.display = 'none';
+        }
 
         // Duck music during active gameplay
         if (window.soundEngine) {
@@ -616,6 +922,9 @@ class UIManager {
     dismissModal() {
         if (this.scoreboardModal) {
             this.scoreboardModal.style.display = 'none';
+        }
+        if (this.crosshairModal) {
+            this.crosshairModal.style.display = 'none';
         }
         document.body.requestPointerLock();
     }
@@ -706,7 +1015,7 @@ class UIManager {
     }
 
     triggerCrosshairRecoil(amount = 4.0) {
-        this.crosshairRecoilImpulse = Math.min(10.0, this.crosshairRecoilImpulse + amount);
+        this.crosshairRecoilImpulse = Math.min(18.0, this.crosshairRecoilImpulse + amount);
     }
 
     updateCrosshairBloom(dt) {

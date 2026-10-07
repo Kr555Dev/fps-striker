@@ -7,6 +7,11 @@
 // Pre-allocated scratch objects for zero-GC raycasting
 const _losDir = new THREE.Vector3();
 const _losRay = new THREE.Raycaster();
+const _spawnEye = new THREE.Vector3();
+const _playerEye = new THREE.Vector3();
+const _candDir = new THREE.Vector3();
+const _coverEye = new THREE.Vector3();
+const _toCover = new THREE.Vector3();
 
 class GameMap {
     constructor(scene) {
@@ -15,6 +20,7 @@ class GameMap {
         this.shootableMeshes = [];
         this.jumpPads = [];
         this.spawnPoints = [];
+        this.tacticalCoverPoints = [];
         this.waypoints = [];
         this.materials = {};
         this.initMaterials();
@@ -243,7 +249,7 @@ class GameMap {
         this.addJumpPad(-55, 0, 25, 16);
         this.addJumpPad(45, 0, -20, 18);
 
-        // 9. Safe Open Spawn Points
+        // 9. Safe Open Spawn Points (20 balanced arena spawn points)
         this.spawnPoints = [
             new THREE.Vector3(-55, 0.5, -55),
             new THREE.Vector3(55, 0.5, 55),
@@ -254,7 +260,52 @@ class GameMap {
             new THREE.Vector3(-60, 0.5, 0),
             new THREE.Vector3(60, 0.5, 0),
             new THREE.Vector3(25, 0.5, -30),
-            new THREE.Vector3(-25, 0.5, 30)
+            new THREE.Vector3(-25, 0.5, 30),
+            // Expanded perimeter and corridor safe spawns
+            new THREE.Vector3(-62, 0.5, -28),
+            new THREE.Vector3(62, 0.5, 28),
+            new THREE.Vector3(-28, 0.5, -58),
+            new THREE.Vector3(28, 0.5, 58),
+            new THREE.Vector3(-46, 0.5, 12),
+            new THREE.Vector3(46, 0.5, -12),
+            new THREE.Vector3(-18, 0.5, -48),
+            new THREE.Vector3(18, 0.5, 48),
+            new THREE.Vector3(-52, 0.5, -50),
+            new THREE.Vector3(52, 0.5, 50)
+        ];
+
+        // 10. Tactical Cover Anchors (Behind crates, pillars, containers, and courtyard walls)
+        this.tacticalCoverPoints = [
+            // Behind crate group (-12, 0, 32)
+            new THREE.Vector3(-12, 0.5, 36.5),
+            new THREE.Vector3(-16.5, 0.5, 32),
+            // Behind crate group (32, 0, -12)
+            new THREE.Vector3(32, 0.5, -16.5),
+            new THREE.Vector3(36.5, 0.5, -12),
+            // Behind crate group (-36, 0, -48)
+            new THREE.Vector3(-36, 0.5, -52.5),
+            new THREE.Vector3(-41.0, 0.5, -48),
+            // Behind crate group (48, 0, 48)
+            new THREE.Vector3(48, 0.5, 52.5),
+            new THREE.Vector3(52.5, 0.5, 48),
+            // Behind crate group (0, 0, -45)
+            new THREE.Vector3(0, 0.5, -49.5),
+            new THREE.Vector3(-4.5, 0.5, -45),
+            new THREE.Vector3(4.5, 0.5, -45),
+            // Behind shipping containers
+            new THREE.Vector3(-21, 0.5, -16),
+            new THREE.Vector3(-16, 0.5, -24),
+            new THREE.Vector3(25, 0.5, 14),
+            new THREE.Vector3(18, 0.5, 19),
+            new THREE.Vector3(-29, 0.5, 18),
+            new THREE.Vector3(27, 0.5, -20),
+            // Behind central dais pillars & courtyard walls
+            new THREE.Vector3(-7.5, 0.5, -7.5),
+            new THREE.Vector3(7.5, 0.5, -7.5),
+            new THREE.Vector3(-7.5, 0.5, 7.5),
+            new THREE.Vector3(7.5, 0.5, 7.5),
+            new THREE.Vector3(-48, 0.5, -15),
+            new THREE.Vector3(48, 0.5, 20)
         ];
 
         // 10. Open Lane AI Waypoints
@@ -435,6 +486,114 @@ class GameMap {
             }
         }
         return bestSpawn.clone();
+    }
+
+    /**
+     * Requirement 1: Smart Post-Kill Respawn Selection
+     * Evaluates candidate spawn points with zero GC allocations using pre-allocated scratch objects.
+     * Criteria:
+     * - Minimum safe distance from player (>= 22m, ideally 35m-60m)
+     * - Raycast Line-of-Sight occlusion (spawn behind crates/walls, NOT in open sightlines)
+     * - Player camera FOV cone check (avoid spawning directly in front of the player's crosshairs)
+     * - Anti-clustering (penalizes spawning on top of other alive bots)
+     */
+    getSmartRespawnPoint(playerPos, playerFacingDir, enemyPositions = []) {
+        if (!playerPos) {
+            return this.getSafeSpawnPoint(enemyPositions, 20);
+        }
+
+        _playerEye.set(playerPos.x, playerPos.y + 1.7, playerPos.z);
+        let bestSpawn = null;
+        let bestScore = -999999;
+
+        for (let i = 0; i < this.spawnPoints.length; i++) {
+            const sp = this.spawnPoints[i];
+            const distToPlayer = sp.distanceTo(playerPos);
+
+            // Hard reject if within 22m of the player!
+            if (distToPlayer < 22) continue;
+
+            let score = distToPlayer * 1.5;
+
+            // Direct Line-of-Sight check:
+            // Spawning in plain sight of the player is heavily penalized. Spawning behind cover is rewarded.
+            _spawnEye.set(sp.x, sp.y + 1.75, sp.z);
+            const hasLos = this.hasLineOfSight(_spawnEye, _playerEye);
+            if (hasLos) {
+                score -= 100;
+            } else {
+                score += 65;
+            }
+
+            // Player camera FOV cone check:
+            // Do NOT spawn in the direction the player is looking
+            if (playerFacingDir) {
+                _candDir.subVectors(sp, playerPos);
+                _candDir.y = 0;
+                _candDir.normalize();
+                const fovDot = _candDir.dot(playerFacingDir);
+                if (fovDot > 0.4) {
+                    score -= 50; // Directly in front of player's camera
+                } else if (fovDot < -0.2) {
+                    score += 25; // Out of player's view cone
+                }
+            }
+
+            // Spread away from other alive bots to prevent bot stacking
+            for (let j = 0; j < enemyPositions.length; j++) {
+                const bPos = enemyPositions[j];
+                if (bPos) {
+                    const bDist = sp.distanceTo(bPos);
+                    if (bDist < 7.0) score -= 35;
+                }
+            }
+
+            if (score > bestScore) {
+                bestScore = score;
+                bestSpawn = sp;
+            }
+        }
+
+        // Fallback if all spawns were within 22m (e.g. edge-case)
+        if (!bestSpawn) {
+            return this.getSafeSpawnPoint(enemyPositions, 20);
+        }
+
+        return bestSpawn.clone();
+    }
+
+    /**
+     * Requirement 3: Tactical Cover Search
+     * Finds nearest tactical cover point within maxDist that breaks Line-of-Sight with player.
+     */
+    findNearestCoverPoint(fromPos, playerPos, maxDist = 18) {
+        if (!fromPos || !playerPos || !this.tacticalCoverPoints) return null;
+
+        _playerEye.set(playerPos.x, playerPos.y + 1.6, playerPos.z);
+        let bestCover = null;
+        let shortestDist = maxDist;
+
+        for (let i = 0; i < this.tacticalCoverPoints.length; i++) {
+            const cp = this.tacticalCoverPoints[i];
+            const distFromBot = fromPos.distanceTo(cp);
+            if (distFromBot > shortestDist || distFromBot < 1.0) continue;
+
+            // Check if this cover point breaks Line-of-Sight with player
+            _coverEye.set(cp.x, cp.y + 1.5, cp.z);
+            const hasLos = this.hasLineOfSight(_coverEye, _playerEye);
+            if (hasLos) continue; // Does not provide cover from player!
+
+            // Vector check: Ensure moving to this cover does not push directly toward player
+            _toCover.subVectors(cp, fromPos).normalize();
+            _candDir.subVectors(playerPos, fromPos).normalize();
+            const approachDot = _toCover.dot(_candDir);
+            if (approachDot > 0.75) continue; // Heading directly into the player
+
+            shortestDist = distFromBot;
+            bestCover = cp;
+        }
+
+        return bestCover ? bestCover.clone() : null;
     }
 }
 

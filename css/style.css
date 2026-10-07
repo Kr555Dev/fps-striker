@@ -217,8 +217,16 @@ canvas#renderCanvas {
     color: #ffffff;
 }
 
-/* --- FPS Striker Razor-Sharp Crosshair (+ with dynamic bloom) --- */
-#crosshair {
+/* --- FPS Striker Razor-Sharp Crosshair (+ with dynamic bloom & customization) --- */
+:root {
+    --ch-size: 5px;
+    --ch-thick: 2px;
+    --ch-gap: 3px;
+    --ch-color: #ffffff;
+    --ch-dot-size: 3px;
+}
+
+#crosshair, .crosshair-preview-reticle {
     --ch-spread: 0px;
     position: absolute;
     top: 50%;
@@ -230,9 +238,14 @@ canvas#renderCanvas {
 
 .crosshair-line {
     position: absolute;
-    background-color: #ffffff;
-    box-shadow: 0 0 2px #000000, 0 0 1px #000000, 1px 1px 1px #000000;
+    background-color: var(--ch-color, #ffffff);
+    box-shadow: 0 0 2px #000000, 0 0 1px #000000, 1px 1px 1px rgba(0, 0, 0, 0.95);
     transition: transform 0.04s linear;
+}
+
+#crosshair.hide-lines .crosshair-line,
+.crosshair-preview-reticle.hide-lines .crosshair-line {
+    display: none;
 }
 
 #crosshair.firing .ch-top { transform: translateY(calc(-1 * var(--ch-spread, 0px) - 3px)); }
@@ -242,37 +255,75 @@ canvas#renderCanvas {
 
 #crosshair.ads {
     --ch-spread: 0px !important;
-    transform: translate(-50%, -50%) scale(0.4);
-    opacity: 0.12;
+    transform: translate(-50%, -50%) scale(0.85);
 }
 
 .ch-top {
-    width: 2px;
-    height: 8px;
-    top: -13px;
-    left: -1px;
+    width: var(--ch-thick, 2px);
+    height: var(--ch-size, 5px);
+    top: calc(-1 * (var(--ch-gap, 3px) + var(--ch-size, 5px)));
+    left: calc(-0.5 * var(--ch-thick, 2px));
     transform: translateY(calc(-1 * var(--ch-spread, 0px)));
 }
 .ch-bottom {
-    width: 2px;
-    height: 8px;
-    top: 5px;
-    left: -1px;
+    width: var(--ch-thick, 2px);
+    height: var(--ch-size, 5px);
+    top: var(--ch-gap, 3px);
+    left: calc(-0.5 * var(--ch-thick, 2px));
     transform: translateY(var(--ch-spread, 0px));
 }
 .ch-left {
-    height: 2px;
-    width: 8px;
-    left: -13px;
-    top: -1px;
+    height: var(--ch-thick, 2px);
+    width: var(--ch-size, 5px);
+    left: calc(-1 * (var(--ch-gap, 3px) + var(--ch-size, 5px)));
+    top: calc(-0.5 * var(--ch-thick, 2px));
     transform: translateX(calc(-1 * var(--ch-spread, 0px)));
 }
 .ch-right {
-    height: 2px;
-    width: 8px;
-    left: 5px;
-    top: -1px;
+    height: var(--ch-thick, 2px);
+    width: var(--ch-size, 5px);
+    left: var(--ch-gap, 3px);
+    top: calc(-0.5 * var(--ch-thick, 2px));
     transform: translateX(var(--ch-spread, 0px));
+}
+
+.crosshair-dot {
+    position: absolute;
+    width: var(--ch-dot-size, 3px);
+    height: var(--ch-dot-size, 3px);
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background-color: var(--ch-color, #ffffff);
+    box-shadow: 0 0 2px #000000, 0 0 1px #000000, 1px 1px 1px rgba(0, 0, 0, 0.95);
+    border-radius: 50%;
+    display: none;
+    pointer-events: none;
+}
+
+#crosshair.has-dot .crosshair-dot,
+.crosshair-preview-reticle.has-dot .crosshair-dot {
+    display: block;
+}
+
+.crosshair-circle {
+    position: absolute;
+    width: 14px;
+    height: 14px;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    border: var(--ch-thick, 2px) solid var(--ch-color, #ffffff);
+    border-radius: 50%;
+    box-shadow: 0 0 2px #000000, inset 0 0 2px #000000;
+    box-sizing: border-box;
+    display: none;
+    pointer-events: none;
+}
+
+#crosshair.has-circle .crosshair-circle,
+.crosshair-preview-reticle.has-circle .crosshair-circle {
+    display: block;
 }
 
 /* Hitmarker */
@@ -1748,7 +1799,7 @@ canvas#renderCanvas {
 
 /* ================= MENUS & SCREENS ================= */
 .overlay-screen {
-    position: absolute;
+    position: fixed;
     top: 0;
     left: 0;
     width: 100%;
@@ -1924,6 +1975,271 @@ canvas#renderCanvas {
 .audio-test-btn:active {
     background: rgba(0, 255, 204, 0.4);
     transform: scale(0.96);
+}
+
+/* ==========================================================================
+   Tactical Crosshair Customizer Modal & Reticle Calibration Studio
+   ========================================================================== */
+#crosshair-customizer-modal {
+    z-index: 105;
+}
+
+.crosshair-customizer-card {
+    position: relative;
+    max-width: 540px;
+    width: 92%;
+    padding: 24px 32px;
+    background: linear-gradient(135deg, rgba(14, 18, 26, 0.96) 0%, rgba(9, 12, 18, 0.98) 100%);
+    border: 1px solid rgba(0, 255, 204, 0.35);
+    box-shadow: 0 0 35px rgba(0, 255, 204, 0.12), 0 20px 50px rgba(0, 0, 0, 0.85);
+    border-radius: 8px;
+    backdrop-filter: blur(16px);
+}
+
+.crosshair-customizer-card .modal-close-btn {
+    position: absolute;
+    top: 14px;
+    right: 16px;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 16px;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.crosshair-customizer-card .modal-close-btn:hover {
+    color: #00ffcc;
+    border-color: #00ffcc;
+    background: rgba(0, 255, 204, 0.15);
+}
+
+/* Live Crosshair Preview Viewport */
+.ch-preview-wrapper {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin-bottom: 16px;
+}
+
+.ch-preview-box {
+    position: relative;
+    width: 180px;
+    height: 110px;
+    background: 
+        radial-gradient(circle at center, rgba(18, 25, 38, 0.9) 0%, rgba(8, 12, 18, 0.98) 100%),
+        linear-gradient(rgba(0, 255, 204, 0.08) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0, 255, 204, 0.08) 1px, transparent 1px);
+    background-size: 100% 100%, 14px 14px, 14px 14px;
+    border: 1px solid rgba(0, 255, 204, 0.45);
+    border-radius: 6px;
+    box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.8), 0 0 12px rgba(0, 255, 204, 0.15);
+    overflow: hidden;
+}
+
+.ch-preview-target {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 60px;
+    height: 70px;
+    background: radial-gradient(circle at center, rgba(255, 255, 255, 0.06) 0%, transparent 70%);
+    border-radius: 4px;
+    pointer-events: none;
+}
+
+.ch-preview-hint {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    color: rgba(0, 255, 204, 0.7);
+    margin-top: 5px;
+    text-transform: uppercase;
+}
+
+/* Presets Section */
+.ch-section {
+    margin-bottom: 16px;
+}
+
+.ch-section-title {
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 1.2px;
+    color: rgba(255, 255, 255, 0.6);
+    text-transform: uppercase;
+    text-align: left;
+    margin-bottom: 6px;
+}
+
+.ch-presets-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+}
+
+.ch-preset-btn {
+    background: rgba(14, 20, 30, 0.8);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    color: #e2e8f0;
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.8px;
+    padding: 8px 4px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    text-transform: uppercase;
+    outline: none;
+}
+
+.ch-preset-btn:hover {
+    border-color: #00ffcc;
+    color: #00ffcc;
+    background: rgba(0, 255, 204, 0.08);
+}
+
+.ch-preset-btn.active {
+    border-color: #00ffcc;
+    color: #00ffcc;
+    background: rgba(0, 255, 204, 0.18);
+    box-shadow: 0 0 10px rgba(0, 255, 204, 0.35);
+}
+
+/* Controls Layout: Sliders & Color Selection Grid */
+.ch-controls-layout {
+    display: grid;
+    grid-template-columns: 1.15fr 0.85fr;
+    gap: 16px;
+    background: rgba(10, 14, 22, 0.6);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 6px;
+    padding: 14px 16px;
+    text-align: left;
+}
+
+.ch-ctrl-row {
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: 8px;
+}
+
+.ch-ctrl-row:last-child {
+    margin-bottom: 0;
+}
+
+.ch-ctrl-row .setting-slider {
+    width: 130px;
+}
+
+.ch-val-badge {
+    color: #00ffcc;
+    font-family: monospace;
+    font-size: 13px;
+}
+
+.ch-ctrl-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.ch-label {
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    color: rgba(255, 255, 255, 0.65);
+    text-transform: uppercase;
+}
+
+.ch-colors-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.ch-color-btn {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    cursor: pointer;
+    padding: 0;
+    outline: none;
+    transition: transform 0.12s ease, border-color 0.12s ease, box-shadow 0.12s ease;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
+}
+
+.ch-color-btn:hover {
+    transform: scale(1.15);
+    border-color: #ffffff;
+}
+
+.ch-color-btn.active {
+    transform: scale(1.22);
+    border-color: #ffffff;
+    box-shadow: 0 0 10px currentColor, 0 0 4px #ffffff;
+}
+
+/* Center Dot Checkbox */
+.ch-checkbox-container {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    user-select: none;
+    font-size: 14px;
+    font-weight: 700;
+    color: #ffffff;
+    letter-spacing: 0.5px;
+}
+
+.ch-checkbox-container input[type="checkbox"] {
+    position: absolute;
+    opacity: 0;
+    width: 0;
+    height: 0;
+    pointer-events: none;
+}
+
+.ch-checkbox-custom {
+    width: 18px;
+    height: 18px;
+    border: 1.5px solid rgba(0, 255, 204, 0.5);
+    border-radius: 3px;
+    background: rgba(14, 20, 30, 0.8);
+    position: relative;
+    transition: all 0.15s ease;
+}
+
+.ch-checkbox-container input[type="checkbox"]:checked + .ch-checkbox-custom {
+    background: #00ffcc;
+    border-color: #00ffcc;
+    box-shadow: 0 0 8px rgba(0, 255, 204, 0.6);
+}
+
+.ch-checkbox-container input[type="checkbox"]:checked + .ch-checkbox-custom::after {
+    content: '✓';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 12px;
+    font-weight: 900;
+    color: #080a0f;
+}
+
+.ch-checkbox-text {
+    font-size: 13px;
+    letter-spacing: 0.8px;
 }
 
 /* Match Over, Customizer, & Contact Modals */
