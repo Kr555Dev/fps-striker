@@ -137,12 +137,22 @@ class PlayerController {
             }
 
             this.yawObject.rotation.y -= (e.movementX || 0) * effectiveSens;
-            this.pitchObject.rotation.x -= (e.movementY || 0) * effectiveSens;
+
+            const my = (e.movementY || 0);
+            const pitchDelta = my * effectiveSens;
 
             // CS2 Mouse Pull-Down Spray Control: pulling down against recoil actively counters camera climb
-            if ((e.movementY || 0) > 0 && window.weaponSystem && window.weaponSystem.cameraRecoil && window.weaponSystem.cameraRecoil.pitch > 0) {
-                const pullComp = (e.movementY || 0) * effectiveSens * 0.75;
-                window.weaponSystem.cameraRecoil.pitch = Math.max(0, window.weaponSystem.cameraRecoil.pitch - pullComp);
+            const ws = window.weaponSystem;
+            if (my > 0 && ws && ws.cameraRecoil && ws.cameraRecoil.pitch > 0) {
+                if (ws.cameraRecoil.pitch >= pitchDelta) {
+                    ws.cameraRecoil.pitch -= pitchDelta;
+                } else {
+                    const remainder = pitchDelta - ws.cameraRecoil.pitch;
+                    ws.cameraRecoil.pitch = 0;
+                    this.pitchObject.rotation.x -= remainder;
+                }
+            } else {
+                this.pitchObject.rotation.x -= pitchDelta;
             }
 
             const maxPitch = Math.PI / 2 - 0.02;
@@ -540,7 +550,9 @@ class PlayerController {
         const ws = window.weaponSystem;
         const recoilPitch = (ws && ws.cameraRecoil) ? ws.cameraRecoil.pitch : 0;
         const recoilYaw = (ws && ws.cameraRecoil) ? ws.cameraRecoil.yaw : 0;
-        this.camera.rotation.x = recoilPitch;
+        const maxPitch = Math.PI / 2 - 0.02;
+        const clampedRecoilPitch = Math.max(-maxPitch - this.pitchObject.rotation.x, Math.min(maxPitch - this.pitchObject.rotation.x, recoilPitch));
+        this.camera.rotation.x = clampedRecoilPitch;
         this.camera.rotation.y = recoilYaw;
 
         if (this.onGround && isMoving && !this.isSliding) {

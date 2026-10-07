@@ -36,7 +36,7 @@ class FPSStrikerGame {
         this.scene.background = new THREE.Color(0x76b6f0);
         this.scene.fog = new THREE.FogExp2(0x76b6f0, 0.0055);
 
-        this.camera = new THREE.PerspectiveCamera(76, window.innerWidth / window.innerHeight, 0.1, 350);
+        this.camera = new THREE.PerspectiveCamera(76, window.innerWidth / window.innerHeight, 0.02, 350);
 
         // 2. High-Performance Anti-Aliased WebGL Renderer
         this.renderer = new THREE.WebGLRenderer({
@@ -291,6 +291,7 @@ class FPSStrikerGame {
             // Duck music by ~80-85% during active gameplay
             window.soundEngine.duckMusic(true);
         }
+        window.scrollTo(0, 0);
         const startMenu = document.getElementById('start-menu');
         if (startMenu) startMenu.style.display = 'none';
         const pauseMenu = document.getElementById('pause-menu');
@@ -336,11 +337,20 @@ class FPSStrikerGame {
         if (!this.isGameStarted && paused) return;
         this.isPaused = !!paused;
         const pauseMenu = document.getElementById('pause-menu');
+        const crosshairModal = document.getElementById('crosshair-customizer-modal');
         if (this.isPaused) {
-            if (pauseMenu) pauseMenu.style.display = 'flex';
+            if (document.pointerLockElement) {
+                document.exitPointerLock();
+            }
+            if (crosshairModal && crosshairModal.style.display === 'flex') {
+                if (pauseMenu) pauseMenu.style.display = 'none';
+            } else {
+                if (pauseMenu) pauseMenu.style.display = 'flex';
+            }
             if (this.clock) this.clock.getDelta();
         } else {
             if (pauseMenu) pauseMenu.style.display = 'none';
+            if (crosshairModal) crosshairModal.style.display = 'none';
             if (this.clock) this.clock.getDelta();
         }
     }

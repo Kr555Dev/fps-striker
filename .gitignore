@@ -38,6 +38,11 @@ playwright-report/
 .cursor/
 .codebuddy/
 .qoder/
+.kiro/
+.cursorrules
+.windsurfrules
+CODEBUDDY.md
+QODER.md
 .code-review-graph/
 .mcp.json
 opencode.jsonc

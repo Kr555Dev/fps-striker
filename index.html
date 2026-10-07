@@ -246,12 +246,14 @@
             </div>
         </div>
 
-        <!-- FPS Striker Crosshair (+ with center gap) -->
+        <!-- FPS Striker Crosshair (+ with center gap & customizer support) -->
         <div id="crosshair">
+            <div class="crosshair-circle"></div>
             <div class="crosshair-line ch-top"></div>
             <div class="crosshair-line ch-bottom"></div>
             <div class="crosshair-line ch-left"></div>
             <div class="crosshair-line ch-right"></div>
+            <div class="crosshair-dot"></div>
         </div>
 
         <!-- Hitmarker -->
@@ -687,6 +689,7 @@
                     <a href="about.html" class="nav-item">ℹ️ ABOUT US</a>
                 </div>
                 <div class="top-nav-right">
+                    <button id="btn-lobby-crosshair" class="nav-item" style="background: none; border: 1px solid rgba(0,255,204,0.4); color: #00ffcc; cursor: pointer; border-radius: 4px; padding: 4px 10px;">🎯 CROSSHAIR</button>
                     <button id="btn-music-toggle" class="nav-item music-toggle-btn" title="Toggle Background Music">🎵 MUSIC: ON</button>
                     <a href="privacy-policy.html" class="nav-item">🛡️ PRIVACY</a>
                     <a href="terms.html" class="nav-item">⚖️ TERMS</a>
@@ -1084,6 +1087,7 @@
             </div>
 
             <div style="display: flex; gap: 12px; justify-content: center; margin-top: 24px;">
+                <button id="btn-crosshair-settings" class="action-btn" style="background: rgba(0,255,204,0.15); border-color: #00ffcc;">🎯 CROSSHAIR</button>
                 <button id="btn-resume" class="action-btn">RESUME GAME</button>
             </div>
         </div>
@@ -1294,6 +1298,90 @@
                 <button id="btn-done-contact" class="action-btn" style="font-size: 18px;">
                     <span>CLOSE</span>
                 </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Crosshair Customizer Modal -->
+    <div id="crosshair-customizer-modal" class="overlay-screen" style="display: none;">
+        <div class="screen-card crosshair-customizer-card">
+            <button id="btn-close-crosshair-x" class="modal-close-btn" title="Close">✕</button>
+            <div class="modal-title-group" style="text-align: center; margin-bottom: 12px;">
+                <span class="modal-tag" style="color: #00ffcc; font-size: 11px; letter-spacing: 2px;">OPTICS CALIBRATION // HUD SYSTEM</span>
+                <h2 class="game-title" style="font-size: 40px; line-height: 38px; margin-bottom: 2px;">CROSSHAIR SETTINGS</h2>
+            </div>
+
+            <!-- Live Crosshair Preview Box -->
+            <div class="ch-preview-wrapper">
+                <div class="ch-preview-box">
+                    <div class="ch-preview-target"></div>
+                    <div class="crosshair-preview-reticle" id="crosshair-preview">
+                        <div class="crosshair-circle"></div>
+                        <div class="crosshair-line ch-top"></div>
+                        <div class="crosshair-line ch-bottom"></div>
+                        <div class="crosshair-line ch-left"></div>
+                        <div class="crosshair-line ch-right"></div>
+                        <div class="crosshair-dot"></div>
+                    </div>
+                </div>
+                <div class="ch-preview-hint">LIVE PREVIEW</div>
+            </div>
+
+            <!-- Presets Section -->
+            <div class="ch-section">
+                <div class="ch-section-title">PRESETS</div>
+                <div class="ch-presets-grid">
+                    <button class="ch-preset-btn active" data-preset="cs-pro">CS PRO</button>
+                    <button class="ch-preset-btn" data-preset="dot">DOT</button>
+                    <button class="ch-preset-btn" data-preset="cyber-cross">CYBER CROSS</button>
+                    <button class="ch-preset-btn" data-preset="circle-dot">CIRCLE DOT</button>
+                </div>
+            </div>
+
+            <!-- Controls Layout: Sliders & Color Selection Grid -->
+            <div class="ch-controls-layout">
+                <!-- Sliders -->
+                <div class="ch-sliders-column">
+                    <div class="setting-row ch-ctrl-row">
+                        <span>Size/Length: <b id="ch-size-val" class="ch-val-badge">5px</b></span>
+                        <input type="range" id="ch-slider-size" class="setting-slider" min="2" max="16" value="5">
+                    </div>
+                    <div class="setting-row ch-ctrl-row">
+                        <span>Gap: <b id="ch-gap-val" class="ch-val-badge">3px</b></span>
+                        <input type="range" id="ch-slider-gap" class="setting-slider" min="0" max="12" value="3">
+                    </div>
+                    <div class="setting-row ch-ctrl-row">
+                        <span>Thickness: <b id="ch-thick-val" class="ch-val-badge">2px</b></span>
+                        <input type="range" id="ch-slider-thick" class="setting-slider" min="1" max="4" value="2">
+                    </div>
+                </div>
+
+                <!-- Colors & Center Dot -->
+                <div class="ch-options-column">
+                    <div class="ch-ctrl-group">
+                        <div class="ch-label">COLOR</div>
+                        <div class="ch-colors-row">
+                            <button class="ch-color-btn active" data-color="#ffffff" style="background: #ffffff;" title="White"></button>
+                            <button class="ch-color-btn" data-color="#00ffcc" style="background: #00ffcc;" title="Cyan"></button>
+                            <button class="ch-color-btn" data-color="#39ff14" style="background: #39ff14;" title="Lime"></button>
+                            <button class="ch-color-btn" data-color="#ff2255" style="background: #ff2255;" title="Red"></button>
+                            <button class="ch-color-btn" data-color="#ffe600" style="background: #ffe600;" title="Yellow"></button>
+                        </div>
+                    </div>
+
+                    <div class="ch-ctrl-group" style="margin-top: 12px;">
+                        <label class="ch-checkbox-container">
+                            <input type="checkbox" id="ch-toggle-dot">
+                            <span class="ch-checkbox-custom"></span>
+                            <span class="ch-checkbox-text">CENTER DOT</span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Footer Action Button -->
+            <div style="display: flex; justify-content: center; margin-top: 16px;">
+                <button id="btn-close-crosshair" class="action-btn" style="padding: 8px 36px; font-size: 24px;">CLOSE</button>
             </div>
         </div>
     </div>

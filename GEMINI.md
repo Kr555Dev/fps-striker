@@ -4,6 +4,30 @@ This file is automatically loaded by **Antigravity** and **Gemini CLI** upon ope
 
 ---
 
+## ⚡ MANDATORY RULE: ALWAYS USE CODE-REVIEW-GRAPH MCP FIRST
+
+**CRITICAL INSTRUCTION FOR ALL CODING AGENTS IN THIS CODEBASE:**
+This repository has an active Tree-sitter knowledge graph indexed by the `code-review-graph` MCP server.
+You **MUST ALWAYS** use `code-review-graph` as your FIRST action when exploring code, searching functions, tracing callers/callees, assessing blast radius, or reviewing files.
+**DO NOT** start by reading whole files with `view_file` or running grep/dir scans.
+
+### How to invoke in Antigravity:
+All knowledge graph tools are lazy MCP tools called via `call_mcp_tool` with `ServerName: "code-review-graph"`:
+- **Trace callers/callees/references**:
+  `call_mcp_tool(ServerName="code-review-graph", ToolName="query_graph_tool", Arguments={"pattern": "callers_of", "target": "<symbol>", "repo_root": "F:\\WEB projects\\fps-striker"})`
+- **File structure & symbols summary**:
+  `call_mcp_tool(ServerName="code-review-graph", ToolName="query_graph_tool", Arguments={"pattern": "file_summary", "target": "js/weapons.js", "repo_root": "F:\\WEB projects\\fps-striker"})`
+- **Blast radius before editing**:
+  `call_mcp_tool(ServerName="code-review-graph", ToolName="get_impact_radius_tool", Arguments={"target": "<symbol_or_file>", "repo_root": "F:\\WEB projects\\fps-striker"})`
+- **Token-efficient targeted code context**:
+  `call_mcp_tool(ServerName="code-review-graph", ToolName="get_review_context_tool", Arguments={"target": "<symbol>", "repo_root": "F:\\WEB projects\\fps-striker"})`
+- **Analyze git changes**:
+  `call_mcp_tool(ServerName="code-review-graph", ToolName="detect_changes_tool", Arguments={"repo_root": "F:\\WEB projects\\fps-striker"})`
+
+Only use `view_file` AFTER pinpointing exact lines and relationships via the graph!
+
+---
+
 ## 🎯 Target Audience & Core Design Philosophy
 - **Target Audience**: Kids and teenagers aged **8 to 16–18** who love fast-paced competitive shooter games but do not own a PS5, high-end gaming PC, or money to purchase expensive titles. They are seeking high-octane, highly responsive, free browser and low-end hardware alternatives (reminiscent of Krunker / CS:GO / arcade classics). Casual adult players will also jump in for quick casual sessions.
 - **Future Multiplayer Roadmap**: Full multiplayer will be built on top of this entire codebase. All game state, entity tracking, physics tick cycles, and event dispatchers are cleanly decoupled with modular multiplayer network replication in mind.
